@@ -44,6 +44,9 @@ Kosten: alleen het domein, ongeveer € 12 per jaar.
    };
    ```
 
+   In `UNLOCK_TOKEN` staat al een willekeurig gegenereerde token. Je hoeft die niet te
+   verzinnen — neem hem over in de redirect-URL bij Stripe, of vervang beide door iets eigens.
+
 Na betaling komt de koper automatisch terug op de pagina met alles vrijgegeven. Er komt geen
 mens aan te pas.
 
@@ -59,6 +62,13 @@ instelling meldt de knop netjes dat verzenden nog uitstaat.
 
 Dit is belangrijker dan het lijkt: wie de scan doet en niet meteen koopt, is anders voorgoed weg.
 
+## Vindbaarheid
+
+`robots.txt` en `sitemap.xml` staan klaar met `https://jouwdomein.nl` als plaatshouder.
+**Vervang dat door je echte domein zodra je er een hebt**, anders wijst je sitemap naar niets.
+De veelgestelde vragen staan als FAQPage-structured-data in `index.html`; pas je een vraag of
+antwoord aan, werk dan het `application/ld+json`-blok bovenaan mee bij.
+
 ## Eén bestand maken
 
 ```bash
@@ -70,8 +80,17 @@ Voor productie hoeft dit niet — `index.html` plus `assets/` werkt prima.
 
 ## Voor je live gaat
 
-- [ ] Test op een echte telefoon, niet alleen in een smal browservenster
-- [ ] Test met Google Fonts geblokkeerd; het ontwerp moet overeind blijven
-- [ ] Doe zelf een testbetaling in Stripe-testmodus en controleer of de ontgrendeling werkt
-- [ ] Genereer alle vijf documenten en print ze naar pdf; controleer de paginaovergangen
+Gecontroleerd in een geautomatiseerde browsertest (headless Chromium):
+
+- [x] Layout op 320, 375, 390 en 768px — geen horizontale scroll, niets buiten beeld
+- [x] Ontwerp zonder Google Fonts; koppen vallen terug op Georgia
+- [x] De scan volledig doorlopen, uitkomst en hiaten kloppen
+- [x] Ontgrendeling via `?ok=<token>` én via de backupcode
+- [x] Alle vijf documenten gegenereerd en naar pdf geprint; paginaovergangen nagelopen
+
+Nog zelf doen:
+
+- [ ] Kijk er op een echte telefoon naar. De test dekt de layout, niet hoe het aanvoelt.
+- [ ] Doe een testbetaling in Stripe-testmodus en controleer of de ontgrendeling werkt
+- [ ] Vervang `jouwdomein.nl` in `robots.txt` en `sitemap.xml`
 - [ ] Laat de juridische teksten nakijken. Je verkoopt aan bedrijven die op je woord afgaan.

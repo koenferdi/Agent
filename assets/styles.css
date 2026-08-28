@@ -310,7 +310,10 @@ footer ol{max-width:78ch;padding-left:20px}
 @media (max-width:880px){
   .hero{padding:44px 0 44px}
   .hero-grid{grid-template-columns:1fr;gap:46px}
-  .stack{height:344px;max-width:342px;margin:0 auto}
+  /* de stapel is een grid-item met alleen absoluut gepositioneerde kinderen:
+     zonder expliciete breedte krimpt hij in grid tot 0 en schuiven de pagina's
+     het scherm uit. Vandaar width naast max-width. */
+  .stack{height:344px;width:100%;max-width:342px;margin:0 auto}
   .pg{width:214px}
   .p2{left:64px}.p4{left:80px}
   .facts .wrap{grid-template-columns:1fr;gap:24px;padding:30px 22px}
@@ -318,6 +321,16 @@ footer ol{max-width:78ch;padding-left:20px}
   .verdict{flex-direction:column;gap:18px}
   .sysrow{grid-template-columns:1fr auto}
   .sysrow select{grid-column:1/-1}
+}
+@media (max-width:400px){
+  /* de grote knoppen staan op nowrap en zijn breder dan een 320px-scherm;
+     daar rekt de hele hero van uit. Onder elkaar en wél afbreekbaar. */
+  .cta-row{flex-direction:column;gap:9px}
+  .cta-row .btn{width:100%;white-space:normal;text-align:center;font-size:16px;padding:14px 18px}
+  .stack{height:310px}
+  .pg{width:188px;padding:14px 14px 12px}
+  .pg h4{font-size:14.5px}
+  .p2{left:52px;top:46px}.p3{top:136px}.p4{left:66px;top:178px}
 }
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation:none!important;transition:none!important}
@@ -334,6 +347,12 @@ footer ol{max-width:78ch;padding-left:20px}
   body>*{display:none!important}
   #doc{display:block!important}
   @page{margin:19mm 17mm}
+  /* paginaovergangen: geen doorgesneden tabelregels of opsommingspunten,
+     geen kop die als laatste regel onderaan een pagina blijft staan */
+  #doc h5,#doc .big{break-after:avoid;page-break-after:avoid}
+  #doc tr,#doc li,#doc .sig,#doc .note{break-inside:avoid;page-break-inside:avoid}
+  #doc thead{display:table-header-group}
+  #doc p{orphans:3;widows:3}
 }
 #doc{font-family:Georgia,"Times New Roman",serif;font-size:11pt;line-height:1.48;color:#000;background:#fff}
 #doc .dh{border-bottom:2px solid #000;padding-bottom:9px;margin-bottom:22px;

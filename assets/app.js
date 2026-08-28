@@ -8,7 +8,7 @@
 /* ─────────── CONFIGURATIE — pas deze vier regels aan ─────────── */
 const CONFIG = {
   PAY_URL:       "https://buy.stripe.com/VERVANG-DIT",
-  UNLOCK_TOKEN:  "vervang-dit-door-iets-langs-en-willekeurigs",
+  UNLOCK_TOKEN:  "Xbylu7gzK6uZqJWbIKm46yQKrURD4BUFbmQ0w2de2qA",
   BACKUP_CODES:  ["DOSSIER26"],
   LEAD_ENDPOINT: ""   // bv. https://formspree.io/f/xxxxxxxx — leeg = knop meldt dat het uitstaat
 };
@@ -229,11 +229,6 @@ $("codeBtn").addEventListener("click", () => {
   if (CONFIG.BACKUP_CODES.map(c => c.toUpperCase()).includes(v)) unlock();
   else { const b = $("codemsg"); b.className = "msg on bad"; b.textContent = "Die code klopt niet. Kijk in je bevestigingsmail."; }
 });
-if (new URLSearchParams(location.search).get("ok") === CONFIG.UNLOCK_TOKEN) {
-  $("scan").hidden = true;
-  unlock();
-}
-
 /* ═══════════════ SYSTEEMRIJEN ═══════════════ */
 
 const DOELEN = [
@@ -315,9 +310,9 @@ function make(type) {
       "<h5>2. Wie erover gaat</h5><p>" + pers + " (" + rol + ") is aangewezen als verantwoordelijke voor AI-gebruik binnen " + org + ". Vragen, incidenten en verzoeken om een nieuw systeem in gebruik te nemen gaan naar deze persoon.</p>" +
       "<h5>3. Toegestane systemen</h5>" +
       (sys.length
-        ? "<table><tr><th>Systeem</th><th>Leverancier</th><th>Waarvoor</th></tr>" +
+        ? "<table><thead><tr><th>Systeem</th><th>Leverancier</th><th>Waarvoor</th></tr></thead><tbody>" +
           sys.map(s => "<tr><td>" + esc(s.naam) + "</td><td>" + esc(s.lev || "—") + "</td><td>" + esc(s.doel) + "</td></tr>").join("") +
-          "</table><p>Een systeem dat hier niet in staat wordt niet voor werk gebruikt zonder voorafgaande toestemming.</p>"
+          "</tbody></table><p>Een systeem dat hier niet in staat wordt niet voor werk gebruikt zonder voorafgaande toestemming.</p>"
         : "<p>De toegestane systemen staan in het Register van AI-systemen. Wat daar niet in staat wordt niet voor werk gebruikt zonder voorafgaande toestemming.</p>") +
       "<h5>4. Wat er niet in mag</h5><ul><li>Persoonsgegevens van klanten, medewerkers of patiënten, tenzij het systeem daarvoor is goedgekeurd en er een verwerkersovereenkomst ligt.</li><li>Bedrijfsvertrouwelijke informatie: offertes, contracten, broncode, cijfers die nog niet openbaar zijn.</li><li>Inloggegevens, wachtwoorden en sleutels.</li><li>Materiaal van derden waarop wij geen rechten hebben.</li></ul>" +
       "<h5>5. Je blijft zelf verantwoordelijk voor de uitkomst</h5><p>AI-systemen produceren regelmatig antwoorden die overtuigend klinken en niet kloppen. Wie AI gebruikt controleert het resultaat voordat het naar buiten gaat of in een beslissing wordt verwerkt. Feiten, cijfers, namen, bedragen, citaten en verwijzingen worden nagelopen aan een betrouwbare bron.</p>" +
@@ -340,7 +335,7 @@ function make(type) {
     const flag = sys.filter(s => s.code === "emotie");
     h = head("Register van AI-systemen") +
       "<p>Overzicht van de AI-systemen die binnen " + org + " worden gebruikt, bijgehouden ten behoeve van artikel 4 van de AI-verordening. Bijgewerkt op " + nlDate(g_("f_datum")) + " door " + pers + ".</p>" +
-      "<table><tr><th>Systeem</th><th>Leverancier</th><th>Waarvoor</th><th>Risico-indicatie</th><th>Persoonsgegevens</th><th>In gebruik sinds</th></tr>" + rows + blanks + "</table>" +
+      "<table><thead><tr><th>Systeem</th><th>Leverancier</th><th>Waarvoor</th><th>Risico-indicatie</th><th>Persoonsgegevens</th><th>In gebruik sinds</th></tr></thead><tbody>" + rows + blanks + "</tbody></table>" +
       (flag.length ? "<h5>Let op</h5><p>Voor " + flag.map(s => esc(s.naam)).join(", ") + " is emotieherkenning bij medewerkers opgegeven. Artikel 5 van de verordening verbiedt emotieherkenning op de werkvloer, op enkele uitzonderingen na. Staak dit gebruik en leg de situatie voor aan een jurist.</p>" : "") +
       "<h5>Toelichting bij het invullen</h5><ul><li>Neem ook AI-functies op die in bestaande software zitten: samenvatten in e-mail, suggesties in je boekhoudpakket, spraak-naar-tekst, de chat op je website.</li><li>Vul bij <i>Persoonsgegevens</i> in welke categorie erin gaat, of \"geen\".</li><li>Verwijder systemen die je niet meer gebruikt niet, maar zet er een einddatum bij.</li></ul>" +
       sign() + note("De risico-indicatie in dit register is een eerste inschatting op basis van het opgegeven doel, geen classificatie in de zin van de verordening.");
@@ -358,14 +353,14 @@ function make(type) {
       "<h5>1. Wat de verplichting inhoudt</h5><p>Artikel 4 verplicht aanbieders en gebruiksverantwoordelijken van AI-systemen om maatregelen te nemen voor een toereikend niveau van AI-geletterdheid bij hun personeel. De verordening schrijft geen specifieke cursus, urenaantal of certificering voor. De maatregelen moeten passen bij de technische kennis, ervaring en rol van de betrokkene en bij het risico van het systeem. " + niveau + "</p>" +
       "<h5>2. Genomen maatregelen</h5><ol><li><b>Instructie.</b> Medewerkers krijgen uitleg over wat de gebruikte systemen doen, waar de grenzen van hun betrouwbaarheid liggen, en wanneer een uitkomst niet zonder controle mag worden overgenomen.</li><li><b>Beleid.</b> Het AI-gebruiksbeleid is gedeeld en toegankelijk voor iedereen die met AI werkt.</li><li><b>Huisregels.</b> De AI-huisregels hangen zichtbaar op de werkplek.</li><li><b>Aanspreekpunt.</b> " + pers + " is aangewezen als vast aanspreekpunt voor vragen en meldingen.</li><li><b>Herhaling.</b> Bij indiensttreding en bij ingebruikname van een nieuw systeem wordt de instructie herhaald.</li><li><b>Vastlegging.</b> Deelname wordt geregistreerd in de lijst hieronder.</li></ol>" +
       "<h5>3. Behandelde onderwerpen</h5><ul><li>Wat een AI-systeem is, en waar het in onze eigen software zit</li><li>Hallucinaties: waarom een fout antwoord er net zo overtuigend uitziet als een goed antwoord</li><li>Welke gegevens er niet in mogen, en waarom</li><li>De controleplicht op de uitkomst, en wie daarvoor verantwoordelijk is</li><li>Wanneer een mens moet beslissen</li><li>Hoe je een fout meldt</li></ul>" +
-      "<h5>4. Deelnameregistratie</h5><table><tr><th>Naam</th><th>Functie</th><th>Datum</th><th>Handtekening</th></tr>" + rows + "</table>" +
+      "<h5>4. Deelnameregistratie</h5><table><thead><tr><th>Naam</th><th>Functie</th><th>Datum</th><th>Handtekening</th></tr></thead><tbody>" + rows + "</tbody></table>" +
       sign() + note("Bewaar dit document samen met het AI-gebruiksbeleid en het systeemregister.");
   }
 
   if (type === "transparantie") {
     h = head("Transparantie-checklist — artikel 50") +
       "<p>Artikel 50 van de AI-verordening verplicht tot openheid wanneer mensen met AI te maken krijgen. Deze lijst wordt door " + org + " periodiek doorlopen en afgetekend.</p>" +
-      "<table><tr><th style='width:56%'>Punt</th><th>In orde</th><th>Actie / datum</th></tr>" +
+      "<table><thead><tr><th style='width:56%'>Punt</th><th>In orde</th><th>Actie / datum</th></tr></thead><tbody>" +
       ["Bezoekers zien vóór het eerste bericht dat de chat door AI wordt beantwoord.",
        "De melding is leesbaar zonder erop te klikken of te hoveren.",
        "Er is een zichtbare route naar een mens, voor wie die wil.",
@@ -375,7 +370,7 @@ function make(type) {
        "Bij AI-ondersteunde antwoorden per e-mail is duidelijk wie eindverantwoordelijk is.",
        "Medewerkers weten dat zij AI-uitkomsten controleren voordat die naar een klant gaan.",
        "Deze lijst is in de afgelopen twaalf maanden doorlopen."
-      ].map(t => "<tr><td>" + t + "</td><td style='text-align:center'>&#9744;</td><td></td></tr>").join("") + "</table>" +
+      ].map(t => "<tr><td>" + t + "</td><td style='text-align:center'>&#9744;</td><td></td></tr>").join("") + "</tbody></table>" +
       "<h5>Voorbeeldformulering voor een chatbot</h5><p style='border-left:2pt solid #000;padding-left:11px'>Je chat met een automatische assistent. Antwoorden kunnen fouten bevatten. Wil je een medewerker spreken, typ dan <i>medewerker</i>.</p>" +
       "<h5>Voorbeeldformulering onder AI-ondersteunde content</h5><p style='border-left:2pt solid #000;padding-left:11px'>Dit artikel is met behulp van AI opgesteld en door een medewerker van " + org + " gecontroleerd.</p>" +
       sign() + note("Artikel 50 geldt sinds 2 augustus 2026.");
@@ -420,3 +415,11 @@ $("icsBtn").addEventListener("click", () => {
 });
 
 paint();
+
+/* Terugkomst vanaf de betaalpagina. Staat bewust onderaan: unlock() roept addRow()
+   aan, en die leest DOELEN — hierboven gedeclareerd met const, dus eerder aanroepen
+   breekt het script af en dan werkt geen enkele documentknop meer. */
+if (new URLSearchParams(location.search).get("ok") === CONFIG.UNLOCK_TOKEN) {
+  $("scan").hidden = true;
+  unlock();
+}

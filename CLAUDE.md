@@ -23,9 +23,11 @@ Het verkoopkanaal is organisch zoekverkeer op termen als "AI Act mkb verplicht" 
 Statische site. Geen framework, geen bouwstap nodig, geen backend, geen database.
 
 ```
-index.html          structuur
-assets/styles.css   ontwerpsysteem en animaties
+index.html          structuur, plus de FAQPage-structured-data
+assets/styles.css   ontwerpsysteem, animaties en de printregels voor de documenten
 assets/app.js       scanlogica, documentgeneratie, animatiesturing
+robots.txt          verwijst naar de sitemap — domein is nog een plaatshouder
+sitemap.xml         idem
 build.sh            bakt alles in dist/index.html (alleen voor preview/delen)
 ```
 
@@ -85,6 +87,9 @@ Deze zijn niet onderhandelbaar. Ze beschermen de klant én de eigenaar tegen aan
 6. **Copy is Nederlands**, geen Engelse leenwoorden waar een Nederlands woord bestaat.
    Aanspreekvorm: je/jij. Nuchter, geen uitroeptekens, geen overdrijving.
 7. **Geen browseropslag** (localStorage, cookies) zonder dat de privacytekst wordt aangepast.
+8. **De structured data volgt de zichtbare FAQ.** In `index.html` staan de veelgestelde vragen ook
+   als `application/ld+json`. Wijzig je een vraag of antwoord, wijzig dan beide — uit elkaar
+   lopende antwoorden zijn tegenover Google misleidend en tegenover de klant slordig.
 
 ## Stand van de regelgeving (per 28-08-2026)
 
@@ -105,16 +110,17 @@ Controleer dit opnieuw voordat je de teksten aanpast. Deze stand is een momentop
 **Eerst, voor de eerste euro binnenkomt**
 - [ ] `CONFIG.PAY_URL` vullen met een echte Stripe-betaallink van € 149
 - [ ] Stripe succes-URL instellen op `https://<domein>/?ok=<UNLOCK_TOKEN>`
-- [ ] `UNLOCK_TOKEN` vervangen door iets lang en willekeurigs
+- [x] `UNLOCK_TOKEN` vervangen door iets lang en willekeurigs
 - [ ] `LEAD_ENDPOINT` koppelen aan Formspree of Web3Forms
 - [ ] Domein registreren en op Cloudflare Pages zetten
-- [ ] Op een echte telefoon testen, en met Google Fonts geblokkeerd
+- [x] Layout getest op 320–768px en met Google Fonts geblokkeerd (headless Chromium);
+      kijken op een echt toestel staat nog open
 
 **Daarna, om gevonden te worden**
 - [ ] Vier tot zes artikelen die op zoekvragen mikken: "AI Act mkb verplicht",
       "AI-geletterdheid verplicht", "AI-beleid voorbeeld", "valt mijn bedrijf onder de AI Act"
-- [ ] Structured data (FAQPage) op de veelgestelde vragen
-- [ ] sitemap.xml en robots.txt
+- [x] Structured data (FAQPage) op de veelgestelde vragen
+- [x] sitemap.xml en robots.txt — domein nog invullen
 - [ ] Vlaamse variant van de teksten; België loopt voor op Nederland met handhaving
 
 **Later, als er omzet is**
