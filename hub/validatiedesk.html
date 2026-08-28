@@ -1,0 +1,419 @@
+<title>Validatiedesk</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style id="app-css">
+:root{
+  --ground:#E9EBEE; --surface:#FFFFFF; --surface-2:#F3F5F8; --sunken:#DFE3E9;
+  --ink:#141A2B; --ink-soft:#5B6478; --ink-faint:#89909F;
+  --line:#D2D7DF; --line-strong:#B9C0CC;
+  --accent:#2D4B8E; --accent-soft:#E2E8F5;
+  --ok:#2A6B4F; --ok-soft:#DFEDE6;
+  --wait:#8A5A12; --wait-soft:#F6EBD8;
+  --idle:#6F7889; --idle-soft:#E6E9EE;
+  --shadow:0 1px 2px rgba(20,26,43,.06), 0 8px 24px -16px rgba(20,26,43,.28);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#0F1219; --surface:#171B26; --surface-2:#1D2230; --sunken:#0B0E14;
+    --ink:#E7EAF1; --ink-soft:#98A0B3; --ink-faint:#6C7488;
+    --line:#2A3143; --line-strong:#3A4358;
+    --accent:#8AA3E2; --accent-soft:#1E2740;
+    --ok:#5CB48A; --ok-soft:#16301F;
+    --wait:#D0A055; --wait-soft:#302512;
+    --idle:#7B8497; --idle-soft:#222836;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.7);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0F1219; --surface:#171B26; --surface-2:#1D2230; --sunken:#0B0E14;
+  --ink:#E7EAF1; --ink-soft:#98A0B3; --ink-faint:#6C7488;
+  --line:#2A3143; --line-strong:#3A4358;
+  --accent:#8AA3E2; --accent-soft:#1E2740;
+  --ok:#5CB48A; --ok-soft:#16301F;
+  --wait:#D0A055; --wait-soft:#302512;
+  --idle:#7B8497; --idle-soft:#222836;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.7);
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--ground); color:var(--ink);
+  font-family:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  font-size:15px; line-height:1.55; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1120px; margin:0 auto; padding:32px 22px 72px}
+h1,h2,h3{font-family:Newsreader,Georgia,serif; font-weight:600; text-wrap:balance; margin:0}
+.mono{font-family:"IBM Plex Mono",ui-monospace,monospace; font-variant-numeric:tabular-nums}
+.eyebrow{
+  font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:11px;
+  letter-spacing:.13em; text-transform:uppercase; color:var(--ink-faint);
+}
+
+/* header */
+header.top{display:flex; flex-direction:column; gap:20px; margin-bottom:34px}
+.masthead{display:flex; flex-wrap:wrap; align-items:baseline; gap:14px 18px; justify-content:space-between}
+.masthead h1{font-size:34px; letter-spacing:-.01em}
+.lede{color:var(--ink-soft); max-width:60ch; margin:6px 0 0; font-size:14.5px}
+.savepill{
+  font-family:"IBM Plex Mono",monospace; font-size:11.5px; letter-spacing:.04em;
+  color:var(--ink-faint); border:1px solid var(--line); background:var(--surface);
+  padding:5px 11px; border-radius:999px; white-space:nowrap;
+}
+.savepill[data-tone="warn"]{color:var(--wait); border-color:var(--wait); background:var(--wait-soft)}
+.savepill[data-tone="ok"]{color:var(--ok); border-color:var(--ok); background:var(--ok-soft)}
+
+/* phase track */
+.track{display:flex; gap:0; border:1px solid var(--line); border-radius:8px; overflow:hidden; background:var(--surface)}
+.phase{
+  flex:1; padding:12px 16px; border-right:1px solid var(--line);
+  display:flex; flex-direction:column; gap:3px; min-width:0;
+}
+.phase:last-child{border-right:0}
+.phase[data-on="1"]{background:var(--accent-soft)}
+.phase[data-on="1"] .phase-name{color:var(--accent)}
+.phase-name{font-weight:600; font-size:14px}
+.phase-sub{font-size:12px; color:var(--ink-faint)}
+
+/* layout */
+.board{display:grid; grid-template-columns:1fr; gap:26px}
+@media (min-width:980px){ .board{grid-template-columns:minmax(0,1fr) 310px; align-items:start} }
+section.block{margin-bottom:30px}
+.block-head{display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid var(--line-strong)}
+.block-head h2{font-size:20px}
+.count{font-family:"IBM Plex Mono",monospace; font-size:12px; color:var(--ink-faint); font-variant-numeric:tabular-nums}
+
+/* cards */
+.card{background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:16px 18px; box-shadow:var(--shadow)}
+.stack{display:flex; flex-direction:column; gap:12px}
+.empty{
+  border:1px dashed var(--line-strong); border-radius:8px; padding:22px;
+  color:var(--ink-soft); font-size:14px; background:var(--surface-2);
+}
+.empty strong{color:var(--ink); font-weight:600}
+
+/* chips */
+.chip{
+  display:inline-flex; align-items:center; gap:6px; font-family:"IBM Plex Mono",monospace;
+  font-size:11px; letter-spacing:.06em; text-transform:uppercase;
+  padding:3px 9px; border-radius:4px; border:1px solid transparent; white-space:nowrap;
+}
+.chip[data-s="nieuw"]{background:var(--wait-soft); color:var(--wait); border-color:var(--wait)}
+.chip[data-s="opgepakt"]{background:var(--accent-soft); color:var(--accent); border-color:var(--accent)}
+.chip[data-s="geleverd"]{background:var(--ok-soft); color:var(--ok); border-color:var(--ok)}
+.chip[data-s="geparkeerd"]{background:var(--idle-soft); color:var(--idle); border-color:var(--idle)}
+.chip[data-c="hoog"]{background:var(--ok-soft); color:var(--ok); border-color:var(--ok)}
+.chip[data-c="midden"]{background:var(--wait-soft); color:var(--wait); border-color:var(--wait)}
+.chip[data-c="laag"]{background:var(--idle-soft); color:var(--idle); border-color:var(--idle)}
+
+/* brief */
+.brief-top{display:flex; flex-wrap:wrap; gap:8px 12px; align-items:center; justify-content:space-between}
+.brief h3{font-size:17px; line-height:1.3}
+.meta{display:flex; flex-wrap:wrap; gap:6px 18px; margin-top:9px}
+.meta div{font-size:12.5px; color:var(--ink-soft)}
+.meta b{color:var(--ink-faint); font-weight:400; font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.08em; text-transform:uppercase; display:block}
+.findings{margin-top:14px; border-top:1px solid var(--line); padding-top:12px; display:flex; flex-direction:column; gap:10px}
+.finding{display:flex; gap:10px; align-items:flex-start; font-size:14px}
+.finding p{margin:0}
+.finding .src{font-family:"IBM Plex Mono",monospace; font-size:11.5px; color:var(--ink-faint); margin-top:2px}
+.rowtools{display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; align-items:center}
+
+/* roster */
+.desk{display:flex; gap:11px; padding:11px 0; border-bottom:1px solid var(--line)}
+.desk:last-child{border-bottom:0}
+.dot{width:8px; height:8px; border-radius:50%; margin-top:7px; flex:none; background:var(--idle)}
+.desk[data-live="1"] .dot{background:var(--ok)}
+.desk-name{font-family:"IBM Plex Mono",monospace; font-size:13px; font-weight:500}
+.desk-role{font-size:12.5px; color:var(--ink-soft); line-height:1.4}
+.desk-state{font-family:"IBM Plex Mono",monospace; font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-faint); margin-top:3px}
+
+/* forms */
+label{display:block; font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:5px}
+input,select,textarea{
+  width:100%; font:inherit; font-size:14px; color:var(--ink); background:var(--surface-2);
+  border:1px solid var(--line-strong); border-radius:6px; padding:8px 10px;
+}
+textarea{resize:vertical; min-height:66px}
+input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible,summary:focus-visible{
+  outline:2px solid var(--accent); outline-offset:2px;
+}
+.grid2{display:grid; grid-template-columns:1fr; gap:12px}
+@media (min-width:620px){ .grid2{grid-template-columns:1fr 1fr} }
+.full{grid-column:1/-1}
+button{
+  font:inherit; font-size:13.5px; font-weight:500; cursor:pointer;
+  background:var(--surface-2); color:var(--ink); border:1px solid var(--line-strong);
+  border-radius:6px; padding:7px 14px;
+}
+button:hover{border-color:var(--accent); color:var(--accent)}
+button.primary{background:var(--accent); border-color:var(--accent); color:#fff}
+button.primary:hover{filter:brightness(1.1); color:#fff}
+button.quiet{background:transparent; border-color:transparent; color:var(--ink-faint); padding:7px 8px}
+button.quiet:hover{color:var(--accent)}
+select.inline{width:auto; padding:4px 8px; font-size:12.5px}
+details.adder{background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:0; box-shadow:var(--shadow)}
+details.adder>summary{cursor:pointer; padding:13px 18px; font-weight:600; font-size:14px; list-style:none}
+details.adder>summary::-webkit-details-marker{display:none}
+details.adder>summary::before{content:"+ "; color:var(--accent); font-family:"IBM Plex Mono",monospace}
+details.adder[open]>summary{border-bottom:1px solid var(--line)}
+details.adder .body{padding:16px 18px 18px}
+
+/* howto */
+.howto{background:var(--surface-2); border:1px solid var(--line); border-radius:8px; padding:20px 22px}
+.howto ol{margin:10px 0 0; padding-left:20px; display:flex; flex-direction:column; gap:7px}
+.howto li{font-size:13.5px; color:var(--ink-soft)}
+.howto li b{color:var(--ink); font-weight:600}
+.note{font-size:13px; color:var(--ink-soft); border-left:2px solid var(--wait); padding-left:12px; margin-top:16px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important; transition:none!important}}
+</style>
+
+<div class="wrap"><div id="app"></div></div>
+
+<script id="state" type="application/json">
+{"version":1,"briefs":[],"decisions":[{"id":"d1","question":"Welke markt onderzoeken we als eerste?","context":"Er is nog geen markt gekozen. Zonder dat kan de market-researcher niet starten: die heeft een afgebakend probleemgebied, een geografie en een beslissing nodig.","resolved":false,"answer":""}]}
+</script>
+
+<script id="app-js">
+(function(){
+  var AGENTS=[
+    {id:"market-researcher",live:true,role:"Marktomvang, concurrentie, structuur. Levert een oordeel met bronnen en zekerheidsniveau.",state:"Klaar voor gebruik"},
+    {id:"customer-researcher",live:true,role:"Wie heeft het probleem, in hun eigen woorden. Wat gebruiken ze nu, wat betalen ze al.",state:"Klaar voor gebruik"},
+    {id:"strategy-analyst",live:true,role:"Vertaalt onderzoek naar opties, een aanbeveling, afbreekcriteria en een eerste test.",state:"Klaar voor gebruik"},
+    {id:"content-creator",live:false,role:"Schrijft content op basis van een brief. Hoort bij een latere fase.",state:"Buiten huidige fase"}
+  ];
+  var STATUSES=["nieuw","opgepakt","geleverd","geparkeerd"];
+  var STATUS_HINT={nieuw:"wacht op Claude",opgepakt:"Claude is bezig",geleverd:"ligt in /drafts",geparkeerd:"stilgelegd"};
+
+  var state=JSON.parse(document.getElementById("state").textContent);
+  var api=null, ready=false;
+  var app=document.getElementById("app");
+
+  function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
+  function uid(){return Math.random().toString(36).slice(2,9);}
+
+  function buildDoc(st){
+    var css=document.getElementById("app-css").textContent;
+    var js=document.getElementById("app-js").textContent;
+    var json=JSON.stringify(st).replace(/</g,"\\u003c");
+    var S="scr"+"ipt";
+    return '<!doctype html><html lang="nl"><head><meta charset="utf-8">'
+      +'<meta name="viewport" content="width=device-width, initial-scale=1">'
+      +'<title>Validatiedesk</title>'
+      +'<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&amp;family=IBM+Plex+Mono:wght@400;500&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap">'
+      +'<style id="app-css">'+css+'</style></head><body>'
+      +'<div class="wrap"><div id="app"></div></div>'
+      +'<'+S+' id="state" type="application/json">'+json+'</'+S+'>'
+      +'<'+S+' id="app-js">'+js+'</'+S+'></body></html>';
+  }
+
+  function pill(txt,tone){
+    var el=document.getElementById("savepill");
+    if(!el) return;
+    el.textContent=txt;
+    if(tone){el.setAttribute("data-tone",tone);} else {el.removeAttribute("data-tone");}
+  }
+
+  function persist(){
+    if(!api){ pill("Alleen-lezen — niet bewaard","warn"); return; }
+    pill("Opslaan…");
+    api.publish(buildDoc(state)).then(function(){
+      pill("Opgeslagen","ok");
+      setTimeout(function(){pill("Bewaard op deze pagina");},2500);
+    }).catch(function(err){
+      var code=err&&err.code;
+      if(code==="conflict"){ pill("Iemand was eerder — pagina herlaadt","warn"); }
+      else if(code==="not_granted"||code==="not_writer"){ api=null; pill("Alleen-lezen — niet bewaard","warn"); }
+      else { pill("Opslaan mislukt","warn"); }
+    });
+  }
+
+  function commit(){ render(); persist(); }
+
+  function openCount(){ return state.decisions.filter(function(d){return !d.resolved;}).length; }
+  function waitingCount(){ return state.briefs.filter(function(b){return b.status==="nieuw";}).length; }
+
+  function renderDecisions(){
+    var open=state.decisions.filter(function(d){return !d.resolved;});
+    var done=state.decisions.filter(function(d){return d.resolved;});
+    var h='<section class="block"><div class="block-head"><h2>Nu aan jou</h2>'
+      +'<span class="count">'+open.length+' open</span></div>';
+    if(!open.length){
+      h+='<div class="empty">Geen openstaande beslissingen. <strong>Alles ligt bij Claude of is klaar.</strong></div>';
+    } else {
+      h+='<div class="stack">';
+      open.forEach(function(d){
+        h+='<article class="card"><h3 style="font-size:17px">'+esc(d.question)+'</h3>'
+          +'<p style="margin:8px 0 0;color:var(--ink-soft);font-size:14px">'+esc(d.context)+'</p>'
+          +'<div class="rowtools">'
+          +'<input data-ans="'+d.id+'" placeholder="Jouw besluit" style="flex:1;min-width:210px">'
+          +'<button class="primary" data-resolve="'+d.id+'">Vastleggen</button>'
+          +'</div></article>';
+      });
+      h+='</div>';
+    }
+    if(done.length){
+      h+='<details style="margin-top:12px"><summary class="eyebrow" style="cursor:pointer;padding:6px 0">'
+        +done.length+' besloten</summary><div class="stack" style="margin-top:10px">';
+      done.forEach(function(d){
+        h+='<div class="card"><div class="eyebrow">'+esc(d.question)+'</div>'
+          +'<p style="margin:6px 0 0;font-size:14px">'+esc(d.answer||"—")+'</p></div>';
+      });
+      h+='</div></details>';
+    }
+    return h+'</section>';
+  }
+
+  function renderBrief(b){
+    var h='<article class="card brief"><div class="brief-top">'
+      +'<h3>'+esc(b.topic)+'</h3>'
+      +'<span class="chip" data-s="'+esc(b.status)+'">'+esc(b.status)+' · '+esc(STATUS_HINT[b.status]||"")+'</span>'
+      +'</div><div class="meta">'
+      +'<div><b>Agent</b><span class="mono">'+esc(b.agent)+'</span></div>'
+      +'<div><b>Geografie</b>'+esc(b.geo||"—")+'</div>'
+      +'<div><b>Beslissing die dit dient</b>'+esc(b.decision||"—")+'</div>'
+      +'</div>';
+    if(b.findings&&b.findings.length){
+      h+='<div class="findings"><div class="eyebrow">Bevindingen</div>';
+      b.findings.forEach(function(f){
+        h+='<div class="finding"><span class="chip" data-c="'+esc(f.confidence)+'">'+esc(f.confidence)+'</span>'
+          +'<div><p>'+esc(f.text)+'</p><div class="src">'+esc(f.sources||"geen bron genoteerd")+'</div></div></div>';
+      });
+      h+='</div>';
+    }
+    h+='<div class="rowtools"><label style="margin:0">Status</label>'
+      +'<select class="inline" data-status="'+b.id+'">';
+    STATUSES.forEach(function(s){
+      h+='<option value="'+s+'"'+(s===b.status?" selected":"")+'>'+s+'</option>';
+    });
+    h+='</select><button class="quiet" data-addf="'+b.id+'">+ bevinding</button>'
+      +'<button class="quiet" data-del="'+b.id+'">verwijderen</button></div></article>';
+    return h;
+  }
+
+  function renderBriefs(){
+    var h='<section class="block"><div class="block-head"><h2>Opdrachten</h2>'
+      +'<span class="count">'+state.briefs.length+' totaal · '+waitingCount()+' wacht op Claude</span></div>'
+      +'<div class="stack">';
+    if(!state.briefs.length){
+      h+='<div class="empty"><strong>Nog geen opdracht.</strong> Een marktonderzoek start pas als '
+        +'onderwerp, geografie en de te nemen beslissing vaststaan. Zet ze hieronder neer, '
+        +'en zeg daarna tegen Claude dat er een opdracht klaarstaat.</div>';
+    } else {
+      state.briefs.forEach(function(b){ h+=renderBrief(b); });
+    }
+    h+='</div><details class="adder" style="margin-top:14px"><summary>Opdracht toevoegen</summary><div class="body">'
+      +'<div class="grid2">'
+      +'<div class="full"><label for="f-topic">Onderwerp of probleemgebied</label>'
+      +'<input id="f-topic" placeholder="Boekhoudsoftware voor zzp&#39;ers in de bouw"></div>'
+      +'<div><label for="f-agent">Agent</label><select id="f-agent">'
+      +AGENTS.filter(function(a){return a.live;}).map(function(a){return '<option>'+a.id+'</option>';}).join("")
+      +'</select></div>'
+      +'<div><label for="f-geo">Geografie</label><input id="f-geo" placeholder="Nederland"></div>'
+      +'<div class="full"><label for="f-dec">Welke beslissing moet dit dienen?</label>'
+      +'<input id="f-dec" placeholder="Stap ik hier uberhaupt in?"></div>'
+      +'<div class="full"><button class="primary" id="f-add">Toevoegen</button></div>'
+      +'</div></div></details></section>';
+    return h;
+  }
+
+  function renderRoster(){
+    var h='<aside><section class="block"><div class="block-head"><h2>Agents</h2>'
+      +'<span class="count">'+AGENTS.filter(function(a){return a.live;}).length+'/'+AGENTS.length+' gebouwd</span></div>'
+      +'<div class="card" style="padding:6px 16px">';
+    AGENTS.forEach(function(a){
+      h+='<div class="desk" data-live="'+(a.live?1:0)+'"><span class="dot"></span><div>'
+        +'<div class="desk-name">'+esc(a.id)+'</div>'
+        +'<div class="desk-role">'+esc(a.role)+'</div>'
+        +'<div class="desk-state">'+esc(a.state)+'</div></div></div>';
+    });
+    h+='</div>';
+    h+='<div class="howto" style="margin-top:18px"><div class="eyebrow">Hoe dit werkt</div>'
+      +'<ol><li>Jij zet hier een <b>opdracht</b> neer of beantwoordt een open beslissing.</li>'
+      +'<li>Je zegt tegen Claude: <b>lees de validatiedesk</b>.</li>'
+      +'<li>Claude leest deze pagina, draait de agent en zet de bevindingen erin terug.</li>'
+      +'<li>Het volledige rapport landt in <b>/drafts</b>, hier staat de samenvatting.</li></ol>'
+      +'<p class="note">Deze pagina praat niet zelf met de agents. Ze draaien in Claude Code; '
+      +'dit is het gedeelde werkblad tussen jou en Claude, niet een live verbinding.</p></div>';
+    return h+'</section></aside>';
+  }
+
+  function render(){
+    var waiting=openCount();
+    app.innerHTML=
+      '<header class="top"><div class="masthead"><div>'
+      +'<h1>Validatiedesk</h1>'
+      +'<p class="lede">Het werkblad voor de validatiefase. Hier staat wat onderzocht wordt, '
+      +'wat er al bekend is, en welke beslissing op jou wacht.</p></div>'
+      +'<span class="savepill" id="savepill">'+(ready?(api?"Bewaard op deze pagina":"Alleen-lezen — niet bewaard"):"Verbinden…")+'</span>'
+      +'</div>'
+      +'<div class="track">'
+      +'<div class="phase" data-on="1"><span class="phase-name">1 · Valideren</span>'
+      +'<span class="phase-sub">Markt, klant, strategie</span></div>'
+      +'<div class="phase"><span class="phase-name">2 · Bouwen</span>'
+      +'<span class="phase-sub">Aanbod, prijs, financien</span></div>'
+      +'<div class="phase"><span class="phase-name">3 · Runnen</span>'
+      +'<span class="phase-sub">Marketing, sales, operatie</span></div>'
+      +'</div></header>'
+      +'<div class="board"><main>'+renderDecisions()+renderBriefs()+'</main>'+renderRoster()+'</div>';
+    if(!api&&ready){pill("Alleen-lezen — niet bewaard","warn");}
+    else if(waiting){/* keep pill as-is */}
+    bind();
+  }
+
+  function bind(){
+    var add=document.getElementById("f-add");
+    if(add) add.onclick=function(){
+      var t=document.getElementById("f-topic").value.trim();
+      if(!t){ document.getElementById("f-topic").focus(); return; }
+      state.briefs.unshift({
+        id:uid(), agent:document.getElementById("f-agent").value,
+        topic:t, geo:document.getElementById("f-geo").value.trim(),
+        decision:document.getElementById("f-dec").value.trim(),
+        status:"nieuw", findings:[]
+      });
+      commit();
+    };
+    Array.prototype.forEach.call(document.querySelectorAll("[data-status]"),function(sel){
+      sel.onchange=function(){
+        var b=state.briefs.filter(function(x){return x.id===sel.getAttribute("data-status");})[0];
+        if(b){ b.status=sel.value; commit(); }
+      };
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-del]"),function(btn){
+      btn.onclick=function(){
+        var id=btn.getAttribute("data-del");
+        state.briefs=state.briefs.filter(function(x){return x.id!==id;});
+        commit();
+      };
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-addf]"),function(btn){
+      btn.onclick=function(){
+        var b=state.briefs.filter(function(x){return x.id===btn.getAttribute("data-addf");})[0];
+        if(!b) return;
+        var txt=window.prompt("Bevinding (een zin, feitelijk):");
+        if(!txt) return;
+        var conf=(window.prompt("Zekerheid: hoog, midden of laag?","midden")||"midden").toLowerCase();
+        if(["hoog","midden","laag"].indexOf(conf)<0) conf="midden";
+        var src=window.prompt("Bron (URL of korte aanduiding):")||"";
+        b.findings.push({id:uid(),text:txt,confidence:conf,sources:src});
+        commit();
+      };
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-resolve]"),function(btn){
+      btn.onclick=function(){
+        var id=btn.getAttribute("data-resolve");
+        var inp=document.querySelector('[data-ans="'+id+'"]');
+        var val=inp?inp.value.trim():"";
+        if(!val){ if(inp) inp.focus(); return; }
+        var d=state.decisions.filter(function(x){return x.id===id;})[0];
+        if(d){ d.resolved=true; d.answer=val; commit(); }
+      };
+    });
+  }
+
+  render();
+  if(window.claude&&typeof window.claude.use==="function"){
+    window.claude.use("artifact").then(function(a){ api=a; ready=true; render();
+      pill(api?"Bewaard op deze pagina":"Alleen-lezen — niet bewaard",api?null:"warn");
+    }).catch(function(){ ready=true; render(); });
+  } else { ready=true; render(); }
+})();
+</script>

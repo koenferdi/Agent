@@ -2,11 +2,15 @@
 
 ## Project Context
 
-Deze workspace wordt gebruikt voor AI-onderzoek, contentcreatie, workflow-automatisering en agent-ontwikkeling. De hoofdoutput is praktische educatieve content over AI-tools, automatisering en productiviteit voor niet-technische professionals. Bruikbaarheid gaat boven theorie.
+Deze workspace wordt gebruikt om een bedrijf op te zetten en te runnen met behulp van AI-agents. Het werk verloopt in fasen: eerst valideren (marktonderzoek, klantonderzoek, strategie), dan bouwen (aanbod, financien), dan runnen (marketing, sales, operatie).
+
+De huidige fase is valideren. Er is nog geen bedrijf en nog geen gekozen markt. Alles wat daarover niet vaststaat is een open vraag, geen aanname. Vul geen branche, doelgroep of product in die ik niet zelf heb genoemd.
 
 ## About Me
 
-Ik maak YouTube-content over AI-tools en workflows voor niet-technische mensen: marketeers, designers, founders, creators en kenniswerkers. Mijn publiek wil praktische uitkomsten, geen technische uitleg. Schrijf als een ervaren praktijkmens, niet als consultant of academicus.
+Ik bouw een bedrijf op met agents die het onderzoek, de analyse en de uitvoering doen. Ik ben de beslisser, niet de uitvoerder: agents leveren onderbouwd werk aan, ik keur goed.
+
+Wat ik verwacht: praktische uitkomsten en zichtbaar bewijs. Schrijf als een ervaren praktijkmens, niet als consultant of academicus. Als iets onzeker is wil ik dat weten, geen gladde conclusie.
 
 ## Communication Style
 
