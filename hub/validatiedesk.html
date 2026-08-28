@@ -1,419 +1,544 @@
 <title>Validatiedesk</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style id="app-css">
 :root{
-  --ground:#E9EBEE; --surface:#FFFFFF; --surface-2:#F3F5F8; --sunken:#DFE3E9;
-  --ink:#141A2B; --ink-soft:#5B6478; --ink-faint:#89909F;
-  --line:#D2D7DF; --line-strong:#B9C0CC;
-  --accent:#2D4B8E; --accent-soft:#E2E8F5;
-  --ok:#2A6B4F; --ok-soft:#DFEDE6;
-  --wait:#8A5A12; --wait-soft:#F6EBD8;
-  --idle:#6F7889; --idle-soft:#E6E9EE;
-  --shadow:0 1px 2px rgba(20,26,43,.06), 0 8px 24px -16px rgba(20,26,43,.28);
+  --night:#0B1220; --night-2:#111A2C; --panel:#151F35; --panel-2:#1C2942;
+  --line:#27354F; --line-2:#38496B;
+  --ink:#E8EDF7; --ink-soft:#9BA9C4; --ink-faint:#6B7A99;
+  --gold:#F5C542; --teal:#4FD1C5; --amber:#F0A860; --violet:#A78BFA; --slate:#6B7A99;
+  --ok:#5FCE9B; --wait:#F0B454; --busy:#6BA8F5; --idle:#5A6982;
 }
-@media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]){
-    --ground:#0F1219; --surface:#171B26; --surface-2:#1D2230; --sunken:#0B0E14;
-    --ink:#E7EAF1; --ink-soft:#98A0B3; --ink-faint:#6C7488;
-    --line:#2A3143; --line-strong:#3A4358;
-    --accent:#8AA3E2; --accent-soft:#1E2740;
-    --ok:#5CB48A; --ok-soft:#16301F;
-    --wait:#D0A055; --wait-soft:#302512;
-    --idle:#7B8497; --idle-soft:#222836;
-    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.7);
+:root[data-theme="light"]{
+  --night:#DDE4F0; --night-2:#E7ECF6; --panel:#FFFFFF; --panel-2:#F1F4FA;
+  --line:#C6D0E2; --line-2:#A9B7D0;
+  --ink:#141C2E; --ink-soft:#4C5A76; --ink-faint:#6F7D99;
+  --ok:#1F8A5C; --wait:#9A6A12; --busy:#2C63B8; --idle:#7A87A0;
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    --night:#DDE4F0; --night-2:#E7ECF6; --panel:#FFFFFF; --panel-2:#F1F4FA;
+    --line:#C6D0E2; --line-2:#A9B7D0;
+    --ink:#141C2E; --ink-soft:#4C5A76; --ink-faint:#6F7D99;
+    --ok:#1F8A5C; --wait:#9A6A12; --busy:#2C63B8; --idle:#7A87A0;
   }
 }
-:root[data-theme="dark"]{
-  --ground:#0F1219; --surface:#171B26; --surface-2:#1D2230; --sunken:#0B0E14;
-  --ink:#E7EAF1; --ink-soft:#98A0B3; --ink-faint:#6C7488;
-  --line:#2A3143; --line-strong:#3A4358;
-  --accent:#8AA3E2; --accent-soft:#1E2740;
-  --ok:#5CB48A; --ok-soft:#16301F;
-  --wait:#D0A055; --wait-soft:#302512;
-  --idle:#7B8497; --idle-soft:#222836;
-  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.7);
-}
 *{box-sizing:border-box}
-body{
-  margin:0; background:var(--ground); color:var(--ink);
-  font-family:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-  font-size:15px; line-height:1.55; -webkit-font-smoothing:antialiased;
-}
-.wrap{max-width:1120px; margin:0 auto; padding:32px 22px 72px}
-h1,h2,h3{font-family:Newsreader,Georgia,serif; font-weight:600; text-wrap:balance; margin:0}
-.mono{font-family:"IBM Plex Mono",ui-monospace,monospace; font-variant-numeric:tabular-nums}
-.eyebrow{
-  font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:11px;
-  letter-spacing:.13em; text-transform:uppercase; color:var(--ink-faint);
-}
+body{margin:0;background:var(--night);color:var(--ink);
+  font-family:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:15px;line-height:1.55}
+.wrap{max-width:1180px;margin:0 auto;padding:22px 16px 64px}
+.pix{font-family:"Press Start 2P",ui-monospace,monospace;line-height:1.6;letter-spacing:0}
+.mono{font-family:"IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
 
 /* header */
-header.top{display:flex; flex-direction:column; gap:20px; margin-bottom:34px}
-.masthead{display:flex; flex-wrap:wrap; align-items:baseline; gap:14px 18px; justify-content:space-between}
-.masthead h1{font-size:34px; letter-spacing:-.01em}
-.lede{color:var(--ink-soft); max-width:60ch; margin:6px 0 0; font-size:14.5px}
-.savepill{
-  font-family:"IBM Plex Mono",monospace; font-size:11.5px; letter-spacing:.04em;
-  color:var(--ink-faint); border:1px solid var(--line); background:var(--surface);
-  padding:5px 11px; border-radius:999px; white-space:nowrap;
+.hdr{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;justify-content:space-between;margin-bottom:16px}
+.hdr h1{margin:0;font-size:17px}
+.hdr .sub{color:var(--ink-soft);font-size:13.5px;margin-top:8px;max-width:62ch}
+.savepill{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.04em;color:var(--ink-faint);
+  border:1px solid var(--line-2);background:var(--panel);padding:6px 11px;border-radius:3px;white-space:nowrap}
+.savepill[data-tone="warn"]{color:var(--wait);border-color:var(--wait)}
+.savepill[data-tone="ok"]{color:var(--ok);border-color:var(--ok)}
+
+/* map */
+.mapbox{position:relative;border:2px solid var(--line-2);border-radius:4px;overflow:hidden;background:#0d1a14;
+  box-shadow:0 0 0 1px rgba(0,0,0,.4),0 16px 40px -24px rgba(0,0,0,.9)}
+#map{display:block;width:100%;height:auto;image-rendering:pixelated}
+.tag{position:absolute;transform:translate(-50%,-100%);background:rgba(10,16,28,.92);
+  border:1px solid var(--line-2);border-left:3px solid var(--slate);padding:5px 8px 6px;border-radius:2px;
+  cursor:pointer;white-space:nowrap;backdrop-filter:blur(2px);text-align:left}
+.tag:hover,.tag:focus-visible{border-color:var(--gold);outline:none}
+.tag[data-sel="1"]{border-color:var(--gold);box-shadow:0 0 0 2px rgba(245,197,66,.28)}
+.tag .no{font-family:"Press Start 2P",monospace;font-size:7px;color:var(--ink-faint);letter-spacing:.06em}
+.tag .nm{font-family:"Press Start 2P",monospace;font-size:8px;color:#EEF3FF;margin-top:3px;display:block}
+.tag .st{display:flex;align-items:center;gap:4px;margin-top:4px;font-size:10px;color:var(--ink-soft);
+  font-family:"IBM Plex Mono",monospace;letter-spacing:.03em}
+.tag .dot{width:6px;height:6px;border-radius:50%;background:var(--idle);flex:none}
+@media (max-width:720px){
+  .tag{padding:3px 5px 4px}
+  .tag .no{font-size:5px} .tag .nm{font-size:6px} .tag .st{font-size:8px}
 }
-.savepill[data-tone="warn"]{color:var(--wait); border-color:var(--wait); background:var(--wait-soft)}
-.savepill[data-tone="ok"]{color:var(--ok); border-color:var(--ok); background:var(--ok-soft)}
+.maplegend{display:flex;flex-wrap:wrap;gap:6px 16px;padding:9px 12px;background:var(--night-2);
+  border-top:1px solid var(--line);font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--ink-faint)}
+.maplegend span{display:flex;align-items:center;gap:6px}
+.maplegend i{width:7px;height:7px;border-radius:50%;display:block}
 
-/* phase track */
-.track{display:flex; gap:0; border:1px solid var(--line); border-radius:8px; overflow:hidden; background:var(--surface)}
-.phase{
-  flex:1; padding:12px 16px; border-right:1px solid var(--line);
-  display:flex; flex-direction:column; gap:3px; min-width:0;
-}
-.phase:last-child{border-right:0}
-.phase[data-on="1"]{background:var(--accent-soft)}
-.phase[data-on="1"] .phase-name{color:var(--accent)}
-.phase-name{font-weight:600; font-size:14px}
-.phase-sub{font-size:12px; color:var(--ink-faint)}
+/* panels */
+.cols{display:grid;grid-template-columns:1fr;gap:20px;margin-top:22px}
+@media (min-width:920px){.cols{grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);align-items:start}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:4px}
+.panel>h2{margin:0;padding:12px 16px;font-size:10px;border-bottom:1px solid var(--line);
+  font-family:"Press Start 2P",monospace;color:var(--ink);letter-spacing:.02em}
+.panel .body{padding:16px}
+.hint{color:var(--ink-soft);font-size:13.5px}
+.empty{border:1px dashed var(--line-2);border-radius:3px;padding:16px;color:var(--ink-soft);font-size:13.5px;background:var(--panel-2)}
+.empty b{color:var(--ink)}
 
-/* layout */
-.board{display:grid; grid-template-columns:1fr; gap:26px}
-@media (min-width:980px){ .board{grid-template-columns:minmax(0,1fr) 310px; align-items:start} }
-section.block{margin-bottom:30px}
-.block-head{display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid var(--line-strong)}
-.block-head h2{font-size:20px}
-.count{font-family:"IBM Plex Mono",monospace; font-size:12px; color:var(--ink-faint); font-variant-numeric:tabular-nums}
+/* agent head */
+.ahead{display:flex;gap:12px;align-items:flex-start;padding-bottom:14px;border-bottom:1px solid var(--line);margin-bottom:14px}
+.badge{width:34px;height:34px;border-radius:3px;flex:none;border:1px solid var(--line-2);display:grid;place-items:center;
+  font-family:"Press Start 2P",monospace;font-size:9px;color:#0B1220}
+.ahead .nm{font-family:"IBM Plex Mono",monospace;font-size:14px;font-weight:500}
+.ahead .rl{font-size:13px;color:var(--ink-soft);margin-top:3px;max-width:52ch}
 
-/* cards */
-.card{background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:16px 18px; box-shadow:var(--shadow)}
-.stack{display:flex; flex-direction:column; gap:12px}
-.empty{
-  border:1px dashed var(--line-strong); border-radius:8px; padding:22px;
-  color:var(--ink-soft); font-size:14px; background:var(--surface-2);
-}
-.empty strong{color:var(--ink); font-weight:600}
-
-/* chips */
-.chip{
-  display:inline-flex; align-items:center; gap:6px; font-family:"IBM Plex Mono",monospace;
-  font-size:11px; letter-spacing:.06em; text-transform:uppercase;
-  padding:3px 9px; border-radius:4px; border:1px solid transparent; white-space:nowrap;
-}
-.chip[data-s="nieuw"]{background:var(--wait-soft); color:var(--wait); border-color:var(--wait)}
-.chip[data-s="opgepakt"]{background:var(--accent-soft); color:var(--accent); border-color:var(--accent)}
-.chip[data-s="geleverd"]{background:var(--ok-soft); color:var(--ok); border-color:var(--ok)}
-.chip[data-s="geparkeerd"]{background:var(--idle-soft); color:var(--idle); border-color:var(--idle)}
-.chip[data-c="hoog"]{background:var(--ok-soft); color:var(--ok); border-color:var(--ok)}
-.chip[data-c="midden"]{background:var(--wait-soft); color:var(--wait); border-color:var(--wait)}
-.chip[data-c="laag"]{background:var(--idle-soft); color:var(--idle); border-color:var(--idle)}
-
-/* brief */
-.brief-top{display:flex; flex-wrap:wrap; gap:8px 12px; align-items:center; justify-content:space-between}
-.brief h3{font-size:17px; line-height:1.3}
-.meta{display:flex; flex-wrap:wrap; gap:6px 18px; margin-top:9px}
-.meta div{font-size:12.5px; color:var(--ink-soft)}
-.meta b{color:var(--ink-faint); font-weight:400; font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.08em; text-transform:uppercase; display:block}
-.findings{margin-top:14px; border-top:1px solid var(--line); padding-top:12px; display:flex; flex-direction:column; gap:10px}
-.finding{display:flex; gap:10px; align-items:flex-start; font-size:14px}
+/* briefs */
+.stack{display:flex;flex-direction:column;gap:10px}
+.brief{background:var(--panel-2);border:1px solid var(--line);border-radius:3px;padding:12px 14px}
+.brief h3{margin:0;font-size:15px;line-height:1.35}
+.brief .meta{display:flex;flex-wrap:wrap;gap:4px 16px;margin-top:8px;font-size:12.5px;color:var(--ink-soft)}
+.brief .meta b{display:block;font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--ink-faint);font-weight:400}
+.chip{display:inline-flex;align-items:center;gap:5px;font-family:"IBM Plex Mono",monospace;font-size:10px;
+  letter-spacing:.06em;text-transform:uppercase;padding:3px 7px;border-radius:2px;border:1px solid currentColor}
+.chip[data-s="nieuw"]{color:var(--wait)} .chip[data-s="opgepakt"]{color:var(--busy)}
+.chip[data-s="geleverd"]{color:var(--ok)} .chip[data-s="geparkeerd"]{color:var(--idle)}
+.chip[data-c="hoog"]{color:var(--ok)} .chip[data-c="midden"]{color:var(--wait)} .chip[data-c="laag"]{color:var(--idle)}
+.findings{margin-top:11px;padding-top:10px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:9px}
+.finding{display:flex;gap:9px;align-items:flex-start;font-size:13.5px}
 .finding p{margin:0}
-.finding .src{font-family:"IBM Plex Mono",monospace; font-size:11.5px; color:var(--ink-faint); margin-top:2px}
-.rowtools{display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; align-items:center}
+.finding .src{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--ink-faint);margin-top:2px;word-break:break-all}
+.tools{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin-top:11px}
 
-/* roster */
-.desk{display:flex; gap:11px; padding:11px 0; border-bottom:1px solid var(--line)}
-.desk:last-child{border-bottom:0}
-.dot{width:8px; height:8px; border-radius:50%; margin-top:7px; flex:none; background:var(--idle)}
-.desk[data-live="1"] .dot{background:var(--ok)}
-.desk-name{font-family:"IBM Plex Mono",monospace; font-size:13px; font-weight:500}
-.desk-role{font-size:12.5px; color:var(--ink-soft); line-height:1.4}
-.desk-state{font-family:"IBM Plex Mono",monospace; font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-faint); margin-top:3px}
+/* decisions */
+.dec{background:var(--panel-2);border:1px solid var(--line);border-left:3px solid var(--wait);border-radius:3px;padding:12px 14px}
+.dec h3{margin:0;font-size:14.5px;line-height:1.35}
+.dec p{margin:7px 0 0;font-size:13px;color:var(--ink-soft)}
 
 /* forms */
-label{display:block; font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:5px}
-input,select,textarea{
-  width:100%; font:inherit; font-size:14px; color:var(--ink); background:var(--surface-2);
-  border:1px solid var(--line-strong); border-radius:6px; padding:8px 10px;
-}
-textarea{resize:vertical; min-height:66px}
-input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible,summary:focus-visible{
-  outline:2px solid var(--accent); outline-offset:2px;
-}
-.grid2{display:grid; grid-template-columns:1fr; gap:12px}
-@media (min-width:620px){ .grid2{grid-template-columns:1fr 1fr} }
+label{display:block;font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--ink-faint);margin-bottom:4px}
+input,select,textarea{width:100%;font:inherit;font-size:13.5px;color:var(--ink);background:var(--night-2);
+  border:1px solid var(--line-2);border-radius:3px;padding:7px 9px}
+input:focus-visible,select:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+button{font:inherit;font-size:13px;font-weight:500;cursor:pointer;background:var(--panel-2);color:var(--ink);
+  border:1px solid var(--line-2);border-radius:3px;padding:6px 12px}
+button:hover{border-color:var(--gold);color:var(--gold)}
+button.primary{background:var(--gold);border-color:var(--gold);color:#141C2E}
+button.primary:hover{filter:brightness(1.08);color:#141C2E}
+button.quiet{background:transparent;border-color:transparent;color:var(--ink-faint);padding:6px 7px}
+button.quiet:hover{color:var(--gold)}
+select.inline{width:auto;padding:3px 7px;font-size:12px}
+.grid2{display:grid;grid-template-columns:1fr;gap:10px}
+@media (min-width:560px){.grid2{grid-template-columns:1fr 1fr}}
 .full{grid-column:1/-1}
-button{
-  font:inherit; font-size:13.5px; font-weight:500; cursor:pointer;
-  background:var(--surface-2); color:var(--ink); border:1px solid var(--line-strong);
-  border-radius:6px; padding:7px 14px;
-}
-button:hover{border-color:var(--accent); color:var(--accent)}
-button.primary{background:var(--accent); border-color:var(--accent); color:#fff}
-button.primary:hover{filter:brightness(1.1); color:#fff}
-button.quiet{background:transparent; border-color:transparent; color:var(--ink-faint); padding:7px 8px}
-button.quiet:hover{color:var(--accent)}
-select.inline{width:auto; padding:4px 8px; font-size:12.5px}
-details.adder{background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:0; box-shadow:var(--shadow)}
-details.adder>summary{cursor:pointer; padding:13px 18px; font-weight:600; font-size:14px; list-style:none}
+details.adder{margin-top:12px;border:1px solid var(--line);border-radius:3px;background:var(--panel-2)}
+details.adder>summary{cursor:pointer;padding:10px 14px;font-size:13px;font-weight:500;list-style:none}
 details.adder>summary::-webkit-details-marker{display:none}
-details.adder>summary::before{content:"+ "; color:var(--accent); font-family:"IBM Plex Mono",monospace}
+details.adder>summary::before{content:"+ ";color:var(--gold);font-family:"IBM Plex Mono",monospace}
 details.adder[open]>summary{border-bottom:1px solid var(--line)}
-details.adder .body{padding:16px 18px 18px}
-
-/* howto */
-.howto{background:var(--surface-2); border:1px solid var(--line); border-radius:8px; padding:20px 22px}
-.howto ol{margin:10px 0 0; padding-left:20px; display:flex; flex-direction:column; gap:7px}
-.howto li{font-size:13.5px; color:var(--ink-soft)}
-.howto li b{color:var(--ink); font-weight:600}
-.note{font-size:13px; color:var(--ink-soft); border-left:2px solid var(--wait); padding-left:12px; margin-top:16px}
-@media (prefers-reduced-motion:reduce){*{animation:none!important; transition:none!important}}
+details.adder .body{padding:14px}
+.note{font-size:12.5px;color:var(--ink-soft);border-left:2px solid var(--line-2);padding-left:11px;margin-top:14px}
+.howto{margin-top:20px;background:var(--night-2);border:1px solid var(--line);border-radius:4px;padding:16px 18px}
+.howto ol{margin:9px 0 0;padding-left:19px;display:flex;flex-direction:column;gap:6px}
+.howto li{font-size:13px;color:var(--ink-soft)}
+.howto li b{color:var(--ink)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 
 <div class="wrap"><div id="app"></div></div>
 
 <script id="state" type="application/json">
-{"version":1,"briefs":[],"decisions":[{"id":"d1","question":"Welke markt onderzoeken we als eerste?","context":"Er is nog geen markt gekozen. Zonder dat kan de market-researcher niet starten: die heeft een afgebakend probleemgebied, een geografie en een beslissing nodig.","resolved":false,"answer":""}]}
+{"version":2,"sel":"market-researcher","briefs":[],"decisions":[{"id":"d1","question":"Welke markt onderzoeken we als eerste?","context":"Er is nog geen markt gekozen. Zonder afgebakend probleemgebied, geografie en een beslissing die het onderzoek moet dienen kan de Marktpost niet starten.","resolved":false,"answer":""}]}
 </script>
 
 <script id="app-js">
 (function(){
+  var W=400,H=232,S=3;
   var AGENTS=[
-    {id:"market-researcher",live:true,role:"Marktomvang, concurrentie, structuur. Levert een oordeel met bronnen en zekerheidsniveau.",state:"Klaar voor gebruik"},
-    {id:"customer-researcher",live:true,role:"Wie heeft het probleem, in hun eigen woorden. Wat gebruiken ze nu, wat betalen ze al.",state:"Klaar voor gebruik"},
-    {id:"strategy-analyst",live:true,role:"Vertaalt onderzoek naar opties, een aanbeveling, afbreekcriteria en een eerste test.",state:"Klaar voor gebruik"},
-    {id:"content-creator",live:false,role:"Schrijft content op basis van een brief. Hoort bij een latere fase.",state:"Buiten huidige fase"}
+    {id:"market-researcher",no:"01",place:"MARKTPOST",x:78,y:74,col:"#4FD1C5",live:true,kind:"tower",
+     role:"Marktomvang, concurrentie en structuur. Levert een oordeel met bronnen en een zekerheidsniveau."},
+    {id:"customer-researcher",no:"02",place:"KLANTHUIS",x:78,y:176,col:"#F0A860",live:true,kind:"house",
+     role:"Wie heeft het probleem, in hun eigen woorden. Wat gebruiken ze nu en wat betalen ze al."},
+    {id:"strategy-analyst",no:"03",place:"STRATEGIEHAL",x:322,y:74,col:"#A78BFA",live:true,kind:"hall",
+     role:"Vertaalt onderzoek naar opties, een aanbeveling, afbreekcriteria en een eerste test."},
+    {id:"content-creator",no:"04",place:"CONTENTWERK",x:322,y:176,col:"#6B7A99",live:false,kind:"shop",
+     role:"Schrijft content op basis van een brief. Hoort bij een latere fase, staat nu stil."}
   ];
+  var HQ={no:"00",place:"HOOFDKWARTIER",x:200,y:118,col:"#F5C542"};
   var STATUSES=["nieuw","opgepakt","geleverd","geparkeerd"];
-  var STATUS_HINT={nieuw:"wacht op Claude",opgepakt:"Claude is bezig",geleverd:"ligt in /drafts",geparkeerd:"stilgelegd"};
+  var SHINT={nieuw:"wacht op Claude",opgepakt:"Claude is bezig",geleverd:"ligt in /drafts",geparkeerd:"stilgelegd"};
+  var SCOL={nieuw:"var(--wait)",opgepakt:"var(--busy)",geleverd:"var(--ok)",geparkeerd:"var(--idle)",idle:"var(--idle)"};
 
   var state=JSON.parse(document.getElementById("state").textContent);
-  var api=null, ready=false;
+  var api=null,ready=false;
   var app=document.getElementById("app");
 
   function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){
     return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
   function uid(){return Math.random().toString(36).slice(2,9);}
+  function agent(id){for(var i=0;i<AGENTS.length;i++){if(AGENTS[i].id===id)return AGENTS[i];}return AGENTS[0];}
+  function briefsOf(id){return state.briefs.filter(function(b){return b.agent===id;});}
+  function agentStatus(id){
+    var bs=briefsOf(id);
+    if(!bs.length)return "idle";
+    if(bs.some(function(b){return b.status==="opgepakt";}))return "opgepakt";
+    if(bs.some(function(b){return b.status==="nieuw";}))return "nieuw";
+    if(bs.some(function(b){return b.status==="geleverd";}))return "geleverd";
+    return "geparkeerd";
+  }
+  function statusLabel(s){return s==="idle"?"Idle":SHINT[s];}
 
+  /* ---------- pixel map ---------- */
+  function rnd(seed){var s=seed;return function(){s=(s*1664525+1013904223)%4294967296;return s/4294967296;};}
+  function draw(){
+    var c=document.getElementById("map");if(!c)return;
+    c.width=W*S;c.height=H*S;
+    var g=c.getContext("2d");g.imageSmoothingEnabled=false;g.setTransform(S,0,0,S,0,0);
+    function px(x,y,w,h,col){g.fillStyle=col;g.fillRect(x|0,y|0,w|0,h|0);}
+
+    /* grass with dither */
+    px(0,0,W,H,"#16311F");
+    var r=rnd(97);
+    for(var y=0;y<H;y+=2){for(var x=0;x<W;x+=2){
+      var v=r();
+      if(v>0.86)px(x,y,2,2,"#1B3A26"); else if(v>0.72)px(x,y,2,2,"#193523"); else if(v<0.06)px(x,y,2,2,"#12291A");
+    }}
+    /* paths: cross + ring */
+    function path(x,y,w,h){
+      px(x,y,w,h,"#6E6450"); px(x,y,w,1,"#7E7460"); px(x,y+h-1,w,1,"#5B5341");
+      var rr=rnd(x*31+y*17);
+      for(var i=0;i<w*h/9;i++){var px2=x+((rr()*w)|0),py=y+((rr()*h)|0);px(px2,py,1,1,rr()>0.5?"#7A7059":"#645B48");}
+    }
+    path(0,112,W,12);          /* horizontal spine */
+    path(194,0,12,H);          /* vertical spine */
+    path(72,74,12,42);         /* to marktpost */
+    path(72,120,12,60);        /* to klanthuis */
+    path(316,74,12,42);        /* to strategiehal */
+    path(316,120,12,60);       /* to contentwerk */
+    path(78,68,244,8);         /* north link */
+    path(78,178,244,8);        /* south link */
+
+    /* pond */
+    px(150,150,34,20,"#17384F");px(152,152,30,16,"#1E4A66");px(154,154,26,12,"#25597A");
+    px(156,155,10,3,"#3A7BA0");
+
+    /* trees */
+    var tr=rnd(2024);
+    function tree(x,y,big){
+      var h2=big?9:7,w2=big?9:7;
+      px(x+((w2/2)|0),y+h2,1,3,"#3A2A1C");
+      px(x,y+2,w2,h2-2,"#14472C");px(x+1,y,w2-2,h2,"#1A5636");px(x+2,y+1,w2-4,3,"#227046");
+    }
+    for(var i=0;i<150;i++){
+      var tx=(tr()*(W-12))|0, ty=(tr()*(H-16))|0;
+      var onPath=(ty>106&&ty<128)||(tx>188&&tx<212)||(tx>66&&tx<90&&ty>68&&ty<186)||(tx>310&&tx<334&&ty>68&&ty<186)
+        ||(ty>62&&ty<80&&tx>72&&tx<328)||(ty>172&&ty<192&&tx>72&&tx<328);
+      var onPond=(tx>142&&tx<192&&ty>142&&ty<176);
+      var onBld=false;
+      var all=AGENTS.concat([HQ]);
+      for(var k=0;k<all.length;k++){var a=all[k];
+        if(tx>a.x-34&&tx<a.x+34&&ty>a.y-30&&ty<a.y+26)onBld=true;}
+      if(!onPath&&!onBld&&!onPond)tree(tx,ty,tr()>0.6);
+    }
+
+    /* ---- building kit ---- */
+    var WALL_D="#2A2740",WALL="#3A3556",WALL_L="#474169",WALL_S="#2E2A46",WIN_ON="#F4CE76",WIN_OFF="#221F36";
+    function shadow(x,y,w,h){px(x+3,y+h,w-4,3,"rgba(0,0,0,.4)");}
+    function wall(x,y,w,h){
+      px(x,y,w,h,WALL_D);px(x+1,y,w-2,h-1,WALL);
+      px(x+1,y,w-2,2,WALL_L);px(x+1,y+h-3,w-2,2,WALL_S);
+    }
+    function pitch(x,y,w,h,col){                       /* stepped gable */
+      for(var i=0;i<h;i++){
+        var ins=Math.round(i*(w/2-2)/h);
+        px(x+ins,y+h-1-i,w-ins*2,1,i===h-1?"#EFF4FF":col);
+      }
+    }
+    function wins(x,y,w,h,lit,seed,sx,sy){
+      var wr=rnd(seed);
+      for(var wy=y;wy<y+h;wy+=sy){for(var wx=x;wx<x+w-2;wx+=sx){
+        var on=lit&&wr()>0.3;
+        px(wx,wy,3,4,on?WIN_ON:WIN_OFF);
+        if(on)px(wx,wy,3,1,"#FFF0C0");
+      }}
+    }
+    function door(cx,baseY,lit){
+      px(cx-3,baseY-9,6,9,"#241F36");
+      if(lit)px(cx-2,baseY-8,4,8,"#8A6A2E");
+    }
+    function beacon(cx,topY,col,on){
+      px(cx-1,topY-9,2,9,"#5A5478");
+      px(cx-2,topY-12,5,3,on?col:"#3E4A63");
+      if(on){g.fillStyle="rgba(255,255,255,.07)";g.beginPath();g.arc(cx,topY-11,9,0,6.3);g.fill();}
+    }
+    function lamp(x,y,on){
+      px(x,y,1,7,"#4A4560");px(x-1,y-3,3,3,on?"#FFD98A":"#3A4055");
+      if(on){g.fillStyle="rgba(255,217,138,.10)";g.beginPath();g.arc(x,y-2,9,0,6.3);g.fill();}
+    }
+    function crate(x,y){px(x,y,6,5,"#4A3B2A");px(x+1,y+1,4,3,"#5D4A34");px(x,y+2,6,1,"#3A2E20");}
+
+    function place(a,lit){
+      var cx=a.x, base=a.y+22, k=a.kind, seed=a.x*7+a.y;
+      if(k==="tower"){
+        var w=24,x=cx-12,h=40,y=base-h;
+        shadow(x,y,w,h);wall(x,y,w,h);
+        wins(x+5,y+7,w-8,h-16,lit,seed,8,10);
+        var pw=36,px0=cx-18,py=y-9;
+        shadow(px0,py,pw,9);wall(px0,py,pw,9);
+        px(px0,py,pw,2,a.col);
+        wins(px0+5,py+3,pw-9,4,lit,seed+3,9,6);
+        pitch(px0-2,py-10,pw+4,10,a.col);
+        door(cx,base,lit);beacon(cx,py-10,a.col,lit);
+      } else if(k==="house"){
+        var w2=46,x2=cx-23,h2=26,y2=base-h2;
+        shadow(x2,y2,w2,h2);wall(x2,y2,w2,h2);
+        wins(x2+6,y2+6,w2-11,h2-15,lit,seed,11,10);
+        pitch(x2-3,y2-15,w2+6,15,a.col);
+        px(x2+w2-13,y2-24,5,10,"#4A4460");px(x2+w2-14,y2-26,7,3,"#5A5478"); /* chimney */
+        door(cx,base,lit);
+        crate(x2-9,base-5);crate(x2-9,base-10);crate(x2+w2+3,base-5);
+      } else if(k==="hall"){
+        var w3=56,x3=cx-28,h3=30,y3=base-h3;
+        shadow(x3,y3,w3,h3);wall(x3,y3,w3,h3);
+        for(var c=x3+5;c<x3+w3-4;c+=9){px(c,y3+4,3,h3-10,"#4B4569");px(c,y3+4,1,h3-10,"#5A5480");}
+        wins(x3+6,y3+8,w3-12,6,lit,seed,9,9);
+        px(x3-3,y3-7,w3+6,7,a.col);px(x3-3,y3-7,w3+6,1,"#EFF4FF");
+        pitch(x3-3,y3-17,w3+6,10,a.col);
+        door(cx,base,lit);beacon(cx,y3-17,a.col,lit);
+      } else {                                            /* shop / workshop */
+        var w4=46,x4=cx-23,h4=27,y4=base-h4;
+        shadow(x4,y4,w4,h4);wall(x4,y4,w4,h4);
+        wins(x4+6,y4+8,w4-11,h4-16,lit,seed,11,9);
+        for(var t=0;t<3;t++){                             /* saw-tooth roof */
+          var sx2=x4+t*16;
+          pitch(sx2,y4-9,16,9,a.col);
+        }
+        px(x4+3,y4-19,5,11,"#403B54");px(x4+2,y4-21,7,3,"#4E4866");
+        door(cx,base,lit);
+      }
+    }
+
+    function hq(){
+      var cx=HQ.x, base=HQ.y+24;
+      var w=62,x=cx-31,h=32,y=base-h;
+      shadow(x,y,w,h);wall(x,y,w,h);
+      wins(x+6,y+7,w-12,h-15,true,11,9,10);
+      px(x-3,y-6,w+6,6,HQ.col);px(x-3,y-6,w+6,1,"#FFF6D8");
+      var tw=24,tx=cx-12,ty=y-6-20;
+      shadow(tx,ty,tw,20);wall(tx,ty,tw,20);
+      wins(tx+5,ty+5,tw-9,8,true,29,8,9);
+      pitch(tx-3,ty-11,tw+6,11,HQ.col);
+      px(cx-1,ty-21,2,10,"#6A6488");
+      px(cx-4,ty-24,9,3,HQ.col);
+      g.fillStyle="rgba(245,197,66,.12)";g.beginPath();g.arc(cx,ty-22,16,0,6.3);g.fill();
+      door(cx,base,true);
+    }
+
+    for(var m=0;m<AGENTS.length;m++){
+      var a2=AGENTS[m];
+      place(a2,a2.live);
+      lamp(a2.x-33,a2.y+18,a2.live);lamp(a2.x+33,a2.y+18,a2.live);
+    }
+    hq();
+    lamp(HQ.x-42,HQ.y+20,true);lamp(HQ.x+42,HQ.y+20,true);
+    lamp(200,58,true);lamp(200,188,true);lamp(120,118,true);lamp(280,118,true);
+    /* fountain */
+    px(194,150,12,8,"#3C3856");px(196,151,8,6,"#2A5C7C");px(199,147,2,5,"#5FA0C4");
+    px(198,146,4,1,"#7FC0E0");
+    /* vignette */
+    var grd=g.createRadialGradient(W/2,H/2,60,W/2,H/2,250);
+    grd.addColorStop(0,"rgba(0,0,0,0)");grd.addColorStop(1,"rgba(0,0,0,.45)");
+    g.fillStyle=grd;g.fillRect(0,0,W,H);
+  }
+
+  /* ---------- state io ---------- */
   function buildDoc(st){
     var css=document.getElementById("app-css").textContent;
     var js=document.getElementById("app-js").textContent;
     var json=JSON.stringify(st).replace(/</g,"\\u003c");
-    var S="scr"+"ipt";
+    var T="scr"+"ipt";
     return '<!doctype html><html lang="nl"><head><meta charset="utf-8">'
-      +'<meta name="viewport" content="width=device-width, initial-scale=1">'
-      +'<title>Validatiedesk</title>'
-      +'<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&amp;family=IBM+Plex+Mono:wght@400;500&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap">'
+      +'<meta name="viewport" content="width=device-width, initial-scale=1"><title>Validatiedesk</title>'
+      +'<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap">'
       +'<style id="app-css">'+css+'</style></head><body>'
       +'<div class="wrap"><div id="app"></div></div>'
-      +'<'+S+' id="state" type="application/json">'+json+'</'+S+'>'
-      +'<'+S+' id="app-js">'+js+'</'+S+'></body></html>';
+      +'<'+T+' id="state" type="application/json">'+json+'</'+T+'>'
+      +'<'+T+' id="app-js">'+js+'</'+T+'></body></html>';
   }
-
-  function pill(txt,tone){
-    var el=document.getElementById("savepill");
-    if(!el) return;
-    el.textContent=txt;
-    if(tone){el.setAttribute("data-tone",tone);} else {el.removeAttribute("data-tone");}
-  }
-
+  function pill(t,tone){var e=document.getElementById("savepill");if(!e)return;
+    e.textContent=t;if(tone)e.setAttribute("data-tone",tone);else e.removeAttribute("data-tone");}
   function persist(){
-    if(!api){ pill("Alleen-lezen — niet bewaard","warn"); return; }
+    if(!api){pill("Alleen-lezen — niet bewaard","warn");return;}
     pill("Opslaan…");
     api.publish(buildDoc(state)).then(function(){
-      pill("Opgeslagen","ok");
-      setTimeout(function(){pill("Bewaard op deze pagina");},2500);
+      pill("Opgeslagen","ok");setTimeout(function(){pill("Bewaard op deze pagina");},2200);
     }).catch(function(err){
-      var code=err&&err.code;
-      if(code==="conflict"){ pill("Iemand was eerder — pagina herlaadt","warn"); }
-      else if(code==="not_granted"||code==="not_writer"){ api=null; pill("Alleen-lezen — niet bewaard","warn"); }
-      else { pill("Opslaan mislukt","warn"); }
+      var c=err&&err.code;
+      if(c==="conflict")pill("Iemand was eerder — pagina herlaadt","warn");
+      else if(c==="not_granted"||c==="not_writer"){api=null;pill("Alleen-lezen — niet bewaard","warn");}
+      else pill("Opslaan mislukt","warn");
     });
   }
+  function commit(){render();persist();}
 
-  function commit(){ render(); persist(); }
-
-  function openCount(){ return state.decisions.filter(function(d){return !d.resolved;}).length; }
-  function waitingCount(){ return state.briefs.filter(function(b){return b.status==="nieuw";}).length; }
-
-  function renderDecisions(){
-    var open=state.decisions.filter(function(d){return !d.resolved;});
-    var done=state.decisions.filter(function(d){return d.resolved;});
-    var h='<section class="block"><div class="block-head"><h2>Nu aan jou</h2>'
-      +'<span class="count">'+open.length+' open</span></div>';
-    if(!open.length){
-      h+='<div class="empty">Geen openstaande beslissingen. <strong>Alles ligt bij Claude of is klaar.</strong></div>';
-    } else {
-      h+='<div class="stack">';
-      open.forEach(function(d){
-        h+='<article class="card"><h3 style="font-size:17px">'+esc(d.question)+'</h3>'
-          +'<p style="margin:8px 0 0;color:var(--ink-soft);font-size:14px">'+esc(d.context)+'</p>'
-          +'<div class="rowtools">'
-          +'<input data-ans="'+d.id+'" placeholder="Jouw besluit" style="flex:1;min-width:210px">'
-          +'<button class="primary" data-resolve="'+d.id+'">Vastleggen</button>'
-          +'</div></article>';
-      });
-      h+='</div>';
-    }
-    if(done.length){
-      h+='<details style="margin-top:12px"><summary class="eyebrow" style="cursor:pointer;padding:6px 0">'
-        +done.length+' besloten</summary><div class="stack" style="margin-top:10px">';
-      done.forEach(function(d){
-        h+='<div class="card"><div class="eyebrow">'+esc(d.question)+'</div>'
-          +'<p style="margin:6px 0 0;font-size:14px">'+esc(d.answer||"—")+'</p></div>';
-      });
-      h+='</div></details>';
-    }
-    return h+'</section>';
+  /* ---------- render ---------- */
+  function tags(){
+    var h="";
+    var all=AGENTS.map(function(a){return a;});
+    all.forEach(function(a){
+      var st=agentStatus(a.id);
+      var col=a.live?SCOL[st]:"var(--idle)";
+      var loff=a.kind==="tower"?52:(a.kind==="hall"?34:32);
+      h+='<button class="tag" data-pick="'+a.id+'" data-sel="'+(state.sel===a.id?1:0)+'"'
+        +' style="left:'+(a.x/W*100).toFixed(2)+'%;top:'+((a.y-loff)/H*100).toFixed(2)+'%;border-left-color:'+a.col+'">'
+        +'<span class="no">'+a.no+'</span><span class="nm">'+esc(a.place)+'</span>'
+        +'<span class="st"><i class="dot" style="background:'+col+'"></i>'
+        +esc(a.live?statusLabel(st):"Buiten fase")+'</span></button>';
+    });
+    h+='<div class="tag" style="left:'+(HQ.x/W*100).toFixed(2)+'%;top:'+((HQ.y-60)/H*100).toFixed(2)
+      +'%;border-left-color:'+HQ.col+';cursor:default">'
+      +'<span class="no">00</span><span class="nm">HOOFDKWARTIER</span>'
+      +'<span class="st"><i class="dot" style="background:var(--wait)"></i>Fase 1 · Valideren</span></div>';
+    return h;
   }
 
-  function renderBrief(b){
-    var h='<article class="card brief"><div class="brief-top">'
-      +'<h3>'+esc(b.topic)+'</h3>'
-      +'<span class="chip" data-s="'+esc(b.status)+'">'+esc(b.status)+' · '+esc(STATUS_HINT[b.status]||"")+'</span>'
-      +'</div><div class="meta">'
-      +'<div><b>Agent</b><span class="mono">'+esc(b.agent)+'</span></div>'
-      +'<div><b>Geografie</b>'+esc(b.geo||"—")+'</div>'
-      +'<div><b>Beslissing die dit dient</b>'+esc(b.decision||"—")+'</div>'
-      +'</div>';
+  function briefCard(b){
+    var h='<article class="brief"><h3>'+esc(b.topic)+'</h3>'
+      +'<div class="meta"><div><b>Geografie</b>'+esc(b.geo||"—")+'</div>'
+      +'<div><b>Beslissing die dit dient</b>'+esc(b.decision||"—")+'</div></div>';
     if(b.findings&&b.findings.length){
-      h+='<div class="findings"><div class="eyebrow">Bevindingen</div>';
+      h+='<div class="findings">';
       b.findings.forEach(function(f){
         h+='<div class="finding"><span class="chip" data-c="'+esc(f.confidence)+'">'+esc(f.confidence)+'</span>'
           +'<div><p>'+esc(f.text)+'</p><div class="src">'+esc(f.sources||"geen bron genoteerd")+'</div></div></div>';
       });
       h+='</div>';
     }
-    h+='<div class="rowtools"><label style="margin:0">Status</label>'
+    h+='<div class="tools"><span class="chip" data-s="'+esc(b.status)+'">'+esc(b.status)+' · '+esc(SHINT[b.status])+'</span>'
       +'<select class="inline" data-status="'+b.id+'">';
-    STATUSES.forEach(function(s){
-      h+='<option value="'+s+'"'+(s===b.status?" selected":"")+'>'+s+'</option>';
-    });
+    STATUSES.forEach(function(s){h+='<option value="'+s+'"'+(s===b.status?" selected":"")+'>'+s+'</option>';});
     h+='</select><button class="quiet" data-addf="'+b.id+'">+ bevinding</button>'
       +'<button class="quiet" data-del="'+b.id+'">verwijderen</button></div></article>';
     return h;
   }
 
-  function renderBriefs(){
-    var h='<section class="block"><div class="block-head"><h2>Opdrachten</h2>'
-      +'<span class="count">'+state.briefs.length+' totaal · '+waitingCount()+' wacht op Claude</span></div>'
-      +'<div class="stack">';
-    if(!state.briefs.length){
-      h+='<div class="empty"><strong>Nog geen opdracht.</strong> Een marktonderzoek start pas als '
-        +'onderwerp, geografie en de te nemen beslissing vaststaan. Zet ze hieronder neer, '
-        +'en zeg daarna tegen Claude dat er een opdracht klaarstaat.</div>';
+  function agentPanel(){
+    var a=agent(state.sel),bs=briefsOf(a.id),st=agentStatus(a.id);
+    var h='<section class="panel"><h2>'+esc(a.no+" "+a.place)+'</h2><div class="body">'
+      +'<div class="ahead"><div class="badge" style="background:'+a.col+'">'+esc(a.no)+'</div>'
+      +'<div><div class="nm">'+esc(a.id)+'</div><div class="rl">'+esc(a.role)+'</div>'
+      +'<div class="tools" style="margin-top:8px"><span class="chip" data-s="'
+      +(a.live?(st==="idle"?"geparkeerd":st):"geparkeerd")+'">'
+      +esc(a.live?statusLabel(st):"buiten fase")+'</span></div></div></div>';
+    if(!a.live){
+      h+='<div class="empty"><b>Deze agent staat stil.</b> Hij hoort bij een latere fase. '
+        +'Eerst marktonderzoek, daarna beslissen we wat er nodig is.</div>';
+    } else if(!bs.length){
+      h+='<div class="empty"><b>Nog geen opdracht.</b> Een onderzoek start pas als onderwerp, '
+        +'geografie en de te nemen beslissing vaststaan. Zet ze hieronder neer.</div>';
     } else {
-      state.briefs.forEach(function(b){ h+=renderBrief(b); });
+      h+='<div class="stack">';bs.forEach(function(b){h+=briefCard(b);});h+='</div>';
     }
-    h+='</div><details class="adder" style="margin-top:14px"><summary>Opdracht toevoegen</summary><div class="body">'
-      +'<div class="grid2">'
-      +'<div class="full"><label for="f-topic">Onderwerp of probleemgebied</label>'
-      +'<input id="f-topic" placeholder="Boekhoudsoftware voor zzp&#39;ers in de bouw"></div>'
-      +'<div><label for="f-agent">Agent</label><select id="f-agent">'
-      +AGENTS.filter(function(a){return a.live;}).map(function(a){return '<option>'+a.id+'</option>';}).join("")
-      +'</select></div>'
-      +'<div><label for="f-geo">Geografie</label><input id="f-geo" placeholder="Nederland"></div>'
-      +'<div class="full"><label for="f-dec">Welke beslissing moet dit dienen?</label>'
-      +'<input id="f-dec" placeholder="Stap ik hier uberhaupt in?"></div>'
-      +'<div class="full"><button class="primary" id="f-add">Toevoegen</button></div>'
-      +'</div></div></details></section>';
-    return h;
+    if(a.live){
+      h+='<details class="adder"><summary>Opdracht voor '+esc(a.place.toLowerCase())+'</summary><div class="body">'
+        +'<div class="grid2">'
+        +'<div class="full"><label for="f-topic">Onderwerp of probleemgebied</label>'
+        +'<input id="f-topic" placeholder="Boekhoudsoftware voor zzp&#39;ers in de bouw"></div>'
+        +'<div><label for="f-geo">Geografie</label><input id="f-geo" placeholder="Nederland"></div>'
+        +'<div><label for="f-dec">Welke beslissing dient dit?</label><input id="f-dec" placeholder="Stap ik hier in?"></div>'
+        +'<div class="full"><button class="primary" id="f-add">Toevoegen</button></div>'
+        +'</div></div></details>';
+    }
+    return h+'</div></section>';
   }
 
-  function renderRoster(){
-    var h='<aside><section class="block"><div class="block-head"><h2>Agents</h2>'
-      +'<span class="count">'+AGENTS.filter(function(a){return a.live;}).length+'/'+AGENTS.length+' gebouwd</span></div>'
-      +'<div class="card" style="padding:6px 16px">';
-    AGENTS.forEach(function(a){
-      h+='<div class="desk" data-live="'+(a.live?1:0)+'"><span class="dot"></span><div>'
-        +'<div class="desk-name">'+esc(a.id)+'</div>'
-        +'<div class="desk-role">'+esc(a.role)+'</div>'
-        +'<div class="desk-state">'+esc(a.state)+'</div></div></div>';
-    });
-    h+='</div>';
-    h+='<div class="howto" style="margin-top:18px"><div class="eyebrow">Hoe dit werkt</div>'
-      +'<ol><li>Jij zet hier een <b>opdracht</b> neer of beantwoordt een open beslissing.</li>'
+  function decisionsPanel(){
+    var open=state.decisions.filter(function(d){return !d.resolved;});
+    var done=state.decisions.filter(function(d){return d.resolved;});
+    var h='<section class="panel"><h2>NU AAN JOU</h2><div class="body">';
+    if(!open.length){h+='<div class="empty"><b>Geen openstaande beslissingen.</b> Alles ligt bij Claude of is klaar.</div>';}
+    else{
+      h+='<div class="stack">';
+      open.forEach(function(d){
+        h+='<div class="dec"><h3>'+esc(d.question)+'</h3><p>'+esc(d.context)+'</p>'
+          +'<div class="tools"><input data-ans="'+d.id+'" placeholder="Jouw besluit" style="flex:1;min-width:170px">'
+          +'<button class="primary" data-resolve="'+d.id+'">Vastleggen</button></div></div>';
+      });
+      h+='</div>';
+    }
+    if(done.length){
+      h+='<details style="margin-top:12px"><summary class="hint" style="cursor:pointer">'+done.length+' besloten</summary>'
+        +'<div class="stack" style="margin-top:9px">';
+      done.forEach(function(d){h+='<div class="brief"><div class="meta"><div><b>'+esc(d.question)+'</b>'
+        +esc(d.answer||"—")+'</div></div></div>';});
+      h+='</div></details>';
+    }
+    h+='<div class="howto"><b class="pix" style="font-size:9px">HOE DIT WERKT</b>'
+      +'<ol><li>Jij zet een <b>opdracht</b> bij een gebouw neer, of legt een besluit vast.</li>'
       +'<li>Je zegt tegen Claude: <b>lees de validatiedesk</b>.</li>'
       +'<li>Claude leest deze pagina, draait de agent en zet de bevindingen erin terug.</li>'
-      +'<li>Het volledige rapport landt in <b>/drafts</b>, hier staat de samenvatting.</li></ol>'
-      +'<p class="note">Deze pagina praat niet zelf met de agents. Ze draaien in Claude Code; '
-      +'dit is het gedeelde werkblad tussen jou en Claude, niet een live verbinding.</p></div>';
-    return h+'</section></aside>';
+      +'<li>Het rapport landt in <b>/drafts</b>, hier staat de samenvatting.</li></ol>'
+      +'<p class="note">De kaart is een statusbord, geen live verbinding. De agents draaien in '
+      +'Claude Code; de lampjes gaan aan als jij of Claude een status bijwerkt.</p></div>';
+    return h+'</div></section>';
   }
 
   function render(){
-    var waiting=openCount();
     app.innerHTML=
-      '<header class="top"><div class="masthead"><div>'
-      +'<h1>Validatiedesk</h1>'
-      +'<p class="lede">Het werkblad voor de validatiefase. Hier staat wat onderzocht wordt, '
-      +'wat er al bekend is, en welke beslissing op jou wacht.</p></div>'
-      +'<span class="savepill" id="savepill">'+(ready?(api?"Bewaard op deze pagina":"Alleen-lezen — niet bewaard"):"Verbinden…")+'</span>'
-      +'</div>'
-      +'<div class="track">'
-      +'<div class="phase" data-on="1"><span class="phase-name">1 · Valideren</span>'
-      +'<span class="phase-sub">Markt, klant, strategie</span></div>'
-      +'<div class="phase"><span class="phase-name">2 · Bouwen</span>'
-      +'<span class="phase-sub">Aanbod, prijs, financien</span></div>'
-      +'<div class="phase"><span class="phase-name">3 · Runnen</span>'
-      +'<span class="phase-sub">Marketing, sales, operatie</span></div>'
-      +'</div></header>'
-      +'<div class="board"><main>'+renderDecisions()+renderBriefs()+'</main>'+renderRoster()+'</div>';
-    if(!api&&ready){pill("Alleen-lezen — niet bewaard","warn");}
-    else if(waiting){/* keep pill as-is */}
-    bind();
+      '<div class="hdr"><div><h1 class="pix">VALIDATIEDESK</h1>'
+      +'<p class="sub">Fase 1 van drie. Elk gebouw is een agent: klik erop om zijn opdrachten te zien, '
+      +'nieuwe opdrachten neer te zetten en bevindingen terug te lezen.</p></div>'
+      +'<span class="savepill" id="savepill">'+(ready?(api?"Bewaard op deze pagina":"Alleen-lezen — niet bewaard"):"Verbinden…")+'</span></div>'
+      +'<div class="mapbox"><div style="position:relative"><canvas id="map" width="'+(W*S)+'" height="'+(H*S)+'"></canvas>'
+      +tags()+'</div>'
+      +'<div class="maplegend"><span><i style="background:var(--idle)"></i>idle</span>'
+      +'<span><i style="background:var(--wait)"></i>wacht op Claude</span>'
+      +'<span><i style="background:var(--busy)"></i>Claude is bezig</span>'
+      +'<span><i style="background:var(--ok)"></i>geleverd in /drafts</span></div></div>'
+      +'<div class="cols">'+agentPanel()+decisionsPanel()+'</div>';
+    draw();bind();
+    if(ready&&!api)pill("Alleen-lezen — niet bewaard","warn");
   }
 
   function bind(){
+    Array.prototype.forEach.call(document.querySelectorAll("[data-pick]"),function(b){
+      b.onclick=function(){state.sel=b.getAttribute("data-pick");render();persist();};
+    });
     var add=document.getElementById("f-add");
-    if(add) add.onclick=function(){
+    if(add)add.onclick=function(){
       var t=document.getElementById("f-topic").value.trim();
-      if(!t){ document.getElementById("f-topic").focus(); return; }
-      state.briefs.unshift({
-        id:uid(), agent:document.getElementById("f-agent").value,
-        topic:t, geo:document.getElementById("f-geo").value.trim(),
-        decision:document.getElementById("f-dec").value.trim(),
-        status:"nieuw", findings:[]
-      });
+      if(!t){document.getElementById("f-topic").focus();return;}
+      state.briefs.unshift({id:uid(),agent:state.sel,topic:t,
+        geo:document.getElementById("f-geo").value.trim(),
+        decision:document.getElementById("f-dec").value.trim(),status:"nieuw",findings:[]});
       commit();
     };
     Array.prototype.forEach.call(document.querySelectorAll("[data-status]"),function(sel){
       sel.onchange=function(){
         var b=state.briefs.filter(function(x){return x.id===sel.getAttribute("data-status");})[0];
-        if(b){ b.status=sel.value; commit(); }
+        if(b){b.status=sel.value;commit();}
       };
     });
     Array.prototype.forEach.call(document.querySelectorAll("[data-del]"),function(btn){
-      btn.onclick=function(){
-        var id=btn.getAttribute("data-del");
-        state.briefs=state.briefs.filter(function(x){return x.id!==id;});
-        commit();
-      };
+      btn.onclick=function(){var id=btn.getAttribute("data-del");
+        state.briefs=state.briefs.filter(function(x){return x.id!==id;});commit();};
     });
     Array.prototype.forEach.call(document.querySelectorAll("[data-addf]"),function(btn){
       btn.onclick=function(){
         var b=state.briefs.filter(function(x){return x.id===btn.getAttribute("data-addf");})[0];
-        if(!b) return;
-        var txt=window.prompt("Bevinding (een zin, feitelijk):");
-        if(!txt) return;
+        if(!b)return;
+        var txt=window.prompt("Bevinding (een zin, feitelijk):");if(!txt)return;
         var conf=(window.prompt("Zekerheid: hoog, midden of laag?","midden")||"midden").toLowerCase();
-        if(["hoog","midden","laag"].indexOf(conf)<0) conf="midden";
+        if(["hoog","midden","laag"].indexOf(conf)<0)conf="midden";
         var src=window.prompt("Bron (URL of korte aanduiding):")||"";
-        b.findings.push({id:uid(),text:txt,confidence:conf,sources:src});
-        commit();
+        b.findings.push({id:uid(),text:txt,confidence:conf,sources:src});commit();
       };
     });
     Array.prototype.forEach.call(document.querySelectorAll("[data-resolve]"),function(btn){
       btn.onclick=function(){
         var id=btn.getAttribute("data-resolve");
         var inp=document.querySelector('[data-ans="'+id+'"]');
-        var val=inp?inp.value.trim():"";
-        if(!val){ if(inp) inp.focus(); return; }
+        var v=inp?inp.value.trim():"";
+        if(!v){if(inp)inp.focus();return;}
         var d=state.decisions.filter(function(x){return x.id===id;})[0];
-        if(d){ d.resolved=true; d.answer=val; commit(); }
+        if(d){d.resolved=true;d.answer=v;commit();}
       };
     });
   }
 
   render();
   if(window.claude&&typeof window.claude.use==="function"){
-    window.claude.use("artifact").then(function(a){ api=a; ready=true; render();
+    window.claude.use("artifact").then(function(a){api=a;ready=true;render();
       pill(api?"Bewaard op deze pagina":"Alleen-lezen — niet bewaard",api?null:"warn");
-    }).catch(function(){ ready=true; render(); });
-  } else { ready=true; render(); }
+    }).catch(function(){ready=true;render();});
+  } else {ready=true;render();}
 })();
 </script>
