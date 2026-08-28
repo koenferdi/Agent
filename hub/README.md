@@ -23,3 +23,22 @@ De pagina praat niet zelf met de agents. Die draaien in Claude Code.
 
 Bewerk het bestand en publiceer het opnieuw via hetzelfde pad, dan blijft de
 URL gelijk. Publiceren met een ander pad maakt een losse tweede pagina aan.
+
+## Lokale werkomgeving
+
+```bash
+node hub/server.mjs        # start op http://localhost:4317
+```
+
+Geen dependencies, alleen Node built-ins. De server leest live uit de workspace:
+
+- **Agents** uit `.claude/agents/*.md` — naam, beschrijving, model en tools uit de frontmatter
+- **Rapporten** uit `drafts/*.md` — titel en het metadatablok bovenaan (oordeel, zekerheid, bronnen)
+- **Opdrachten en beslissingen** uit `hub/desk.json`, dat de interface zelf bijwerkt
+
+De kaart animeert: wolkjes boven elk gebouw met wat die agent doet, rook uit de
+schoorsteen als er werk openstaat, lampen die pulseren, vuurvliegjes. Klik een
+gebouw om zijn paneel te openen, klik een rapport om het te lezen.
+
+De pagina start de agents niet. Die draaien in Claude Code. Dit is het werkblad
+en de leesomgeving.

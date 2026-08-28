@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Validatiedesk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="hdr">
+    <div>
+      <h1 class="pix">VALIDATIEDESK</h1>
+      <p class="sub">Lokale werkomgeving. Leest de echte bestanden uit deze workspace:
+        de agents in <code>.claude/agents</code> en de rapporten in <code>drafts/</code>.</p>
+    </div>
+    <div class="hdr-right">
+      <span class="pill" id="conn">verbinden…</span>
+      <button id="refresh" title="Opnieuw inlezen">↻ Ververs</button>
+    </div>
+  </header>
+
+  <div class="mapbox">
+    <div class="stage" id="stage">
+      <canvas id="map"></canvas>
+      <div id="bubbles"></div>
+      <div id="hits"></div>
+    </div>
+    <div class="legend">
+      <span><i class="d idle"></i>idle</span>
+      <span><i class="d nieuw"></i>wacht op Claude</span>
+      <span><i class="d opgepakt"></i>Claude is bezig</span>
+      <span><i class="d geleverd"></i>rapport klaar</span>
+      <span class="spacer"></span>
+      <span id="clock" class="mono"></span>
+    </div>
+  </div>
+
+  <div class="cols">
+    <main id="panel"></main>
+    <aside id="side"></aside>
+  </div>
+</div>
+
+<div class="reader" id="reader" hidden>
+  <div class="reader-box">
+    <div class="reader-head">
+      <span class="mono" id="reader-title"></span>
+      <button id="reader-close">sluiten</button>
+    </div>
+    <div class="reader-body" id="reader-body"></div>
+  </div>
+</div>
+
+<script src="/app.js"></script>
+</body>
+</html>

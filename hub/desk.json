@@ -1,0 +1,49 @@
+{
+  "briefs": [
+    {
+      "id": "b-mkt-01",
+      "agent": "market-researcher",
+      "topic": "Zelf een online operatie runnen met AI-automatisering",
+      "geo": "Engelstalig / wereldwijd",
+      "decision": "Stap ik hier in als bedrijfsmodel?",
+      "status": "geleverd",
+      "draft": "marktonderzoek-ai-automatisering-eigen-operatie.md",
+      "findings": [
+        {
+          "id": "f1",
+          "text": "YouTube hernoemde per 15 juli 2025 'repetitious content' naar 'inauthentic content': mass-produced, template-based, easily replicable at scale. Dat is geen beschrijving van misbruik maar van het bedrijfsmodel zelf.",
+          "confidence": "midden",
+          "sources": "searchenginejournal.com, socialmediatoday.com (secundair; primaire bron geblokkeerd)"
+        },
+        {
+          "id": "f2",
+          "text": "Handhaving is verwijdering, niet demonetisatie. Januari 2026: 16 kanalen permanent beeindigd, samen ~4,7 miljard views.",
+          "confidence": "laag",
+          "sources": "secundair, vakblogs met belang bij het onderwerp"
+        },
+        {
+          "id": "f3",
+          "text": "Lage productiekosten zijn het probleem, niet de kans: als het voor jou gratis wordt, wordt het dat voor iedereen. Wat overblijft is een markt zonder toetredingsdrempel waarin distributie in handen is van een partij die deze output onderdrukt.",
+          "confidence": "midden",
+          "sources": "structurele redenering op basis van de beleidsbevindingen"
+        }
+      ]
+    }
+  ],
+  "decisions": [
+    {
+      "id": "d1",
+      "question": "Welke markt onderzoeken we als eerste?",
+      "context": "Er is nog geen markt gekozen. Zonder afgebakend probleemgebied, geografie en een beslissing die het onderzoek moet dienen kan de Marktpost niet starten.",
+      "resolved": true,
+      "answer": "Zelf een operatie runnen met AI-automatisering, Engelstalig/wereldwijd"
+    },
+    {
+      "id": "d2",
+      "question": "Het marktonderzoek zegt: niet instappen. Wat doe je daarmee?",
+      "context": "Het oordeel is 'niet instappen' voor de volledig geautomatiseerde variant, en 'nader onderzoeken' voor een mensgedreven operatie met eigen distributie. Zekerheid midden op de structuur, laag op de cijfers. Kies: doorpakken op de mensgedreven variant, een andere markt kiezen, of het onderzoek aanvechten met eigen kennis die ik niet had.",
+      "resolved": false,
+      "answer": ""
+    }
+  ]
+}
