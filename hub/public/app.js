@@ -24,7 +24,22 @@ var SAY = {
 
 var S = { agents:[], drafts:[], desk:{briefs:[],decisions:[]} };
 var sel = "market-researcher";
+var view = "map";            // "map" | "hier"
+var capSel = null;           // geselecteerde capaciteit in de hierarchie
 var saveTimer=null, tick=0;
+
+var DEPTS = [
+  {id:"kennis",   label:"KENNIS"},
+  {id:"aanbod",   label:"AANBOD"},
+  {id:"markt",    label:"MARKT"},
+  {id:"financien",label:"FINANCIEN"},
+  {id:"operatie", label:"OPERATIE"}
+];
+var LADDER = [
+  {id:"human-led",       lbl:"Human-led"},
+  {id:"human-assisted",  lbl:"Human-assisted"},
+  {id:"fully-autonomous",lbl:"Fully autonomous"}
+];
 
 /* ---------- helpers ---------- */
 function el(id){return document.getElementById(id);}
@@ -47,7 +62,7 @@ function pill(t,tone){var e=el("conn");e.textContent=t;if(tone)e.dataset.t=tone;
 /* ---------- api ---------- */
 function load(){
   return fetch("/api/state").then(function(r){return r.json();}).then(function(d){
-    S=d; if(!S.desk) S.desk={briefs:[],decisions:[]};
+    S=d; if(!S.desk) S.desk={briefs:[],decisions:[]}; if(!S.capabilities) S.capabilities=[];
     if(!S.agents.some(function(a){return a.id===sel;}) && S.agents.length) sel=S.agents[0].id;
     pill(S.agents.length+" agents · "+S.drafts.length+" rapporten","ok");
     renderAll();
@@ -389,11 +404,108 @@ function renderSide(){
   el("side").innerHTML=h;
 }
 
-function renderAll(){ renderMapOverlay(); renderPanel(); renderSide(); }
+function capsOf(dep){ return S.capabilities.filter(function(c){return c.department===dep;}); }
+function capByName(n){ return S.capabilities.filter(function(c){return c.name===n;})[0]; }
+
+function renderHierarchy(){
+  var h='<div class="lane">'
+    +'<div class="node op"><span class="lbl">OPERATOR</span>'
+    +'<div class="nam">jij</div><div class="sub">Beslist. Keurt goed. Voert de gesprekken die een agent niet kan voeren.</div></div>'
+    +'<div class="drop"></div>'
+    +'<div class="node cond"><span class="lbl">CONDUCTOR</span>'
+    +'<div class="nam">deze Claude Code-sessie</div>'
+    +'<div class="sub">Leest de opdracht, kiest de agent, schrijft het resultaat naar <code>drafts/</code>. '
+    +'Geen apart programma — de sessie waarin je nu typt.</div></div>'
+    +'<div class="drop"></div><div class="deps">';
+  DEPTS.forEach(function(d){
+    var caps=capsOf(d.id);
+    h+='<div class="dep"><h3>'+esc(d.label)+'</h3>';
+    if(!caps.length) h+='<div class="cap planned"><div class="t">—</div></div>';
+    caps.forEach(function(c){
+      var who = c.done_by || "geen agent";
+      h+='<button class="cap '+esc(c.status)+'" data-cap="'+esc(c.name)+'"'
+        +' aria-pressed="'+(capSel===c.name?"true":"false")+'">'
+        +'<div class="t">'+esc(c.title)+'</div>'
+        +'<div class="m">'+esc(who)+'</div></button>';
+    });
+    h+='</div>';
+  });
+  h+='</div>'
+    +'<p class="hier-note">Groen betekent gebouwd en bruikbaar. Grijs betekent gedeclareerd maar '
+    +'niet bemand — die staan er zodat je de vorm ziet, niet omdat ze werken. Klik een capaciteit '
+    +'voor de ladder en de SOP.</p></div>';
+  return h;
+}
+
+function renderCapability(){
+  var c = capSel ? capByName(capSel) : null;
+  if(!c){
+    return '<section class="panel"><h2>CAPACITEIT</h2><div class="body">'
+      +'<div class="empty"><b>Kies een capaciteit.</b> Klik een blokje in de hiërarchie om te zien '
+      +'wat het vervangt, hoeveel autonomie het heeft, wat jij nog doet en hoe de SOP loopt.</div>'
+      +'</div></section>';
+  }
+  var h='<section class="panel"><h2>'+esc(c.title.toUpperCase())+'</h2><div class="body">'
+    +'<div class="tools" style="margin:0 0 14px"><span class="chip '
+    +(c.status==="live"?"geleverd":(c.status==="planned"?"idle":"geparkeerd"))+'">'+esc(c.status)+'</span>'
+    +'<span class="chip nieuw">'+esc(c.department)+'</span></div>';
+
+  h+='<div class="kv"><div class="row"><b>Wat het vervangt</b><p>'+esc(c.replaces||"—")+'</p></div>';
+
+  h+='<div class="row"><b>De ladder</b></div></div><div class="ladder">';
+  LADDER.forEach(function(r){
+    var on = c.ladder===r.id;
+    h+='<div class="rung'+(on?" on":"")+'"><span class="rl">'+esc(r.lbl)+'</span>'
+      +'<span class="rt">'+(on?"Hier staat hij nu.":"")+'</span></div>';
+  });
+  h+='</div>';
+
+  h+='<div class="kv">'
+    +'<div class="row"><b>Wat jij nog doet</b><p>'+esc(c.human||"—")+'</p></div>'
+    +'<div class="row"><b>Uitgevoerd door</b><p>'
+      +(c.done_by?'<span class="tag">'+esc(c.done_by)+'</span>':"nog geen agent")
+      +(c.runtime?' <span class="tag">'+esc(c.runtime)+'</span>':"")+'</p></div>';
+  if(c.builds_on.length){
+    h+='<div class="row"><b>Bouwt op</b><div class="tagrow">';
+    c.builds_on.forEach(function(dep){
+      var d=capByName(dep);
+      var cls = d ? (d.status==="live"?"dep-ok":"dep-missing") : "";
+      h+='<span class="tag '+cls+'">'+esc(dep)+(d&&d.status!=="live"?" · nog niet klaar":"")+'</span>';
+    });
+    h+='</div></div>';
+  }
+  if(c.breaks_into.length){
+    h+='<div class="row"><b>Splitst op in</b><div class="tagrow">';
+    c.breaks_into.forEach(function(t){h+='<span class="tag">'+esc(t)+'</span>';});
+    h+='</div></div>';
+  }
+  h+='</div>';
+  h+='<div class="sop"><h4>'+esc(c.file)+'</h4>'+md(c.body)+'</div>';
+  return h+'</div></section>';
+}
+
+function renderAll(){
+  var stage=document.querySelector(".stage"), mb=document.querySelector(".mapbox");
+  var tabs=document.getElementById("tabs");
+  if(tabs){
+    tabs.querySelectorAll("button").forEach(function(b){
+      b.setAttribute("aria-selected", b.dataset.view===view ? "true":"false");
+    });
+  }
+  var hier=document.getElementById("hier");
+  if(stage) stage.style.display = view==="map" ? "" : "none";
+  if(hier){ hier.hidden = view!=="hier"; if(view==="hier") hier.innerHTML=renderHierarchy(); }
+  var legend=document.querySelector(".legend");
+  if(legend) legend.style.display = view==="map" ? "" : "none";
+
+  if(view==="map"){ renderMapOverlay(); renderPanel(); }
+  else { el("panel").innerHTML = renderCapability(); }
+  renderSide();
+}
 
 /* ---------- markdown reader ---------- */
 function md(src){
-  var out=[],lines=src.split(/\r?\n/),inCode=false,inList=false,para=[];
+  var out=[],lines=src.split(/\r?\n/),inCode=false,listTag=null,para=[],liBuf=null;
   function inline(t){
     return esc(t)
       .replace(/`([^`]+)`/g,"<code>$1</code>")
@@ -401,8 +513,10 @@ function md(src){
       .replace(/(^|[^*])\*([^*]+)\*/g,"$1<em>$2</em>")
       .replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
   }
+  function flushLi(){ if(liBuf!==null){ out.push("<li>"+inline(liBuf)+"</li>"); liBuf=null; } }
   function flushPara(){ if(para.length){ out.push("<p>"+inline(para.join(" "))+"</p>"); para=[]; } }
-  function flushList(){ if(inList){ out.push("</ul>"); inList=false; } }
+  function flushList(){ flushLi(); if(listTag){ out.push("</"+listTag+">"); listTag=null; } }
+  function openList(tag){ if(listTag!==tag){ flushList(); out.push("<"+tag+">"); listTag=tag; } }
   lines.forEach(function(l){
     if(/^```/.test(l)){
       flushPara();flushList();
@@ -410,14 +524,14 @@ function md(src){
       return;
     }
     if(inCode){ out.push(esc(l)); return; }
-    var li=l.match(/^[-*]\s+(.*)$/);
-    if(li){ flushPara(); if(!inList){out.push("<ul>");inList=true;} out.push("<li>"+inline(li[1])+"</li>"); return; }
-    var ol=l.match(/^\d+\.\s+(.*)$/);
-    if(ol){ flushPara(); if(!inList){out.push("<ul>");inList=true;} out.push("<li>"+inline(ol[1])+"</li>"); return; }
+    var ul=l.match(/^[-*]\s+(.*)$/);
+    if(ul){ flushPara(); flushLi(); openList("ul"); liBuf=ul[1]; return; }
+    var ol=l.match(/^\d+[.)]\s+(.*)$/);
+    if(ol){ flushPara(); flushLi(); openList("ol"); liBuf=ol[1]; return; }
     var hm=l.match(/^(#{1,4})\s+(.*)$/);
     if(hm){ flushPara();flushList(); out.push("<h"+hm[1].length+">"+inline(hm[2])+"</h"+hm[1].length+">"); return; }
     if(!l.trim()){ flushPara();flushList(); return; }
-    if(inList){ out.push("<li>"+inline(l.trim())+"</li>"); return; }
+    if(liBuf!==null){ liBuf += " " + l.trim(); return; }   // doorlopende regel hoort bij het vorige punt
     para.push(l.trim());
   });
   flushPara();flushList(); if(inCode)out.push("</pre>");
@@ -434,6 +548,10 @@ function openReader(file){
 
 /* ---------- events ---------- */
 document.addEventListener("click",function(e){
+  var vt=e.target.closest("[data-view]");
+  if(vt){ view=vt.dataset.view; renderAll(); return; }
+  var cp=e.target.closest("[data-cap]");
+  if(cp){ capSel=cp.dataset.cap; renderAll(); return; }
   var t=e.target.closest("[data-pick]");
   if(t){ sel=t.dataset.pick; renderAll(); return; }
   var rd=e.target.closest("[data-read]");
@@ -481,7 +599,7 @@ setInterval(function(){
   var d=new Date();
   el("clock").textContent=d.toLocaleTimeString("nl-NL",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
 },1000);
-setInterval(function(){ renderMapOverlay(); }, 2600);
+setInterval(function(){ if(view==="map") renderMapOverlay(); }, 2600);
 
 setupMap();
 load();

@@ -24,6 +24,11 @@
   </header>
 
   <div class="mapbox">
+    <div class="tabs" id="tabs">
+      <button data-view="map" aria-selected="true">KAART</button>
+      <button data-view="hier" aria-selected="false">HIERARCHIE</button>
+    </div>
+    <div class="hier" id="hier" hidden></div>
     <div class="stage" id="stage">
       <canvas id="map"></canvas>
       <div id="bubbles"></div>
