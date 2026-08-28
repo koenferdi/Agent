@@ -15,6 +15,9 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RUN_USER="${SUDO_USER:-root}"
 PORT="${PORT:-4317}"
 
+# Controleer dat we in de juiste map staan en dat de code actueel is
+[[ -f "$DIR/hub/server.mjs" ]] || die "hub/server.mjs niet gevonden in $DIR. Sta je in de goede map?"
+
 say ""
 say "  Validatiedesk installeren op deze server"
 say "  ${DIM}map:      $DIR${OFF}"
@@ -89,8 +92,11 @@ chmod 600 /etc/systemd/system/validatiedesk.service   # wachtwoord staat erin
 systemctl daemon-reload
 systemctl enable --now validatiedesk >/dev/null 2>&1 || systemctl enable --now validatiedesk
 sleep 2
-systemctl is-active --quiet validatiedesk \
-  || die "De service start niet. Kijk met: journalctl -u validatiedesk -n 40"
+if ! systemctl is-active --quiet validatiedesk; then
+  warn "De service start niet. De laatste regels:"
+  journalctl -u validatiedesk -n 15 --no-pager | sed 's/^/    /'
+  die "Afgebroken."
+fi
 say "  Service draait."
 
 # ---------------------------------------------------------------- caddy

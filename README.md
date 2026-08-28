@@ -60,7 +60,7 @@ Heb je een VPS, dan kun je de hub daar laten draaien en hem overal bekijken.
 Er komt dan een wachtwoord op, want een server staat aan het open internet.
 
 ```bash
-git clone https://github.com/koenferdi/Agent.git
+git clone https://github.com/koenferdi/Agent.git   # of: cd ~/Agent && git pull
 cd Agent
 sudo bash deploy/setup-vps.sh
 ```

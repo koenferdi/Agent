@@ -47,8 +47,13 @@ Je hebt een domein of subdomein nodig dat naar het IP van je VPS wijst
 (een A-record, bijvoorbeeld `hub.jouwdomein.nl`).
 
 ```bash
+# eerste keer
 git clone https://github.com/koenferdi/Agent.git
 cd Agent
+
+# had je de map al? dan alleen bijwerken
+cd ~/Agent && git pull origin main
+
 sudo bash deploy/setup-vps.sh
 ```
 
