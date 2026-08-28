@@ -29,9 +29,12 @@ assets/app.js       scanlogica, documentgeneratie, animatiesturing
 robots.txt          verwijst naar de sitemap — domein is nog een plaatshouder
 sitemap.xml         idem
 build.sh            bakt alles in dist/index.html (alleen voor preview/delen)
+package.sh          maakt een uploadklaar pakket met je domein er al in
+deploy/             nginx-serverblok, installeerscript en de hostinghandleiding
 ```
 
 Deploy: upload `index.html` + `assets/` naar Cloudflare Pages of Netlify. Klaar.
+Eigen server: `./package.sh <domein>`, dan `deploy/HOSTEN.md` volgen.
 
 **Alle verwerking gebeurt in de browser van de bezoeker.** Er gaat geen bedrijfsinformatie naar een
 server. Dat is een verkoopargument én een privacybelofte — breek het niet zonder het op de site aan
@@ -112,7 +115,7 @@ Controleer dit opnieuw voordat je de teksten aanpast. Deze stand is een momentop
 - [ ] Stripe succes-URL instellen op `https://<domein>/?ok=<UNLOCK_TOKEN>`
 - [x] `UNLOCK_TOKEN` vervangen door iets lang en willekeurigs
 - [ ] `LEAD_ENDPOINT` koppelen aan Formspree of Web3Forms
-- [ ] Domein registreren en op Cloudflare Pages zetten
+- [ ] Domein registreren en op Cloudflare Pages zetten, of zelf hosten via `deploy/HOSTEN.md`
 - [x] Layout getest op 320–768px en met Google Fonts geblokkeerd (headless Chromium);
       kijken op een echt toestel staat nog open
 

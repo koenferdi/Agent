@@ -10,7 +10,14 @@ python3 -m http.server 8000
 
 Open `http://localhost:8000`. Of open `index.html` gewoon in je browser.
 
-## Online zetten
+## Zelf hosten op je eigen server
+
+Draai `./package.sh <jouwdomein>` en je krijgt een tar.gz waarin je domein al is ingevuld in
+de sitemap, de robots.txt, de canonieke link en de nginx-configuratie. Uploaden, uitpakken,
+`sudo ./installeer.sh` draaien. De volledige handleiding voor Ubuntu staat in
+[`deploy/HOSTEN.md`](deploy/HOSTEN.md): nginx, https met certbot, firewall en updates.
+
+## Online zetten bij een hostingpartij
 
 1. Registreer een domein. Iets als `ai-dossier.nl` of `aidossier.nl`.
 2. Maak een gratis account op [Cloudflare Pages](https://pages.cloudflare.com) of
