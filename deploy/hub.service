@@ -1,0 +1,34 @@
+# Systemd-unit voor de Validatiedesk.
+# Wordt ingevuld en geplaatst door deploy/setup-vps.sh.
+[Unit]
+Description=Validatiedesk hub
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__USER__
+WorkingDirectory=__DIR__
+Environment=NODE_ENV=production
+Environment=HOST=__HOST__
+Environment=PORT=__PORT__
+Environment=HUB_PASSWORD=__PASSWORD__
+Environment=NO_OPEN=1
+ExecStart=/usr/bin/node hub/server.mjs
+Restart=always
+RestartSec=3
+
+# Afscherming: de service mag alleen bij zijn eigen map
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=__DIR__/hub __DIR__/drafts
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

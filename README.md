@@ -54,6 +54,20 @@ Staat je computer uit, dan is de hub niet bereikbaar — het is een lokale serve
 geen website. Wil je iets kunnen bekijken zonder dat je computer aanstaat, zeg
 het dan; ik kan er een momentopname van publiceren.
 
+## Op een server, zonder dat je laptop aanstaat
+
+Heb je een VPS, dan kun je de hub daar laten draaien en hem overal bekijken.
+Er komt dan een wachtwoord op, want een server staat aan het open internet.
+
+```bash
+git clone https://github.com/koenferdi/Agent.git
+cd Agent
+sudo bash deploy/setup-vps.sh
+```
+
+Volledige uitleg, inclusief de veiligere variant zonder open poorten:
+**[deploy/README.md](deploy/README.md)**.
+
 **De laatste versie ophalen** voordat je start:
 
 ```bash

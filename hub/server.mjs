@@ -8,6 +8,7 @@ import { join, dirname, extname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
 import { platform, networkInterfaces } from "node:os";
+import { randomBytes, timingSafeEqual, createHash } from "node:crypto";
 
 const NODE_MAJOR = Number(process.versions.node.split(".")[0]);
 if (NODE_MAJOR < 18) {
@@ -24,7 +25,81 @@ const PORT = Number(process.env.PORT || 4317);
 // Standaard alleen bereikbaar op deze computer. HOST=0.0.0.0 stelt hem open
 // voor andere apparaten op hetzelfde wifi-netwerk (zie "npm run mobiel").
 const HOST = process.env.HOST || "127.0.0.1";
-const OPEN_TO_NETWORK = HOST === "0.0.0.0";
+const LOOPBACK = HOST === "127.0.0.1" || HOST === "localhost" || HOST === "::1";
+const OPEN_TO_NETWORK = !LOOPBACK;
+
+// Zodra de hub buiten deze computer bereikbaar is, moet er een wachtwoord op.
+// Staat er geen in HUB_PASSWORD, dan verzint de server er zelf een en drukt hem af.
+let PASSWORD = process.env.HUB_PASSWORD || "";
+let GENERATED = false;
+if (OPEN_TO_NETWORK && !PASSWORD) {
+  PASSWORD = randomBytes(6).toString("base64url");
+  GENERATED = true;
+}
+// Beveiliging aan zodra de hub buiten deze computer bereikbaar is, EN altijd
+// wanneer er een wachtwoord is gezet — anders staat hij open achter een
+// reverse proxy die zelf wel vanaf het internet bereikbaar is.
+const AUTH_ON = OPEN_TO_NETWORK || !!process.env.HUB_PASSWORD;
+const sessions = new Set();
+const failures = new Map();        // ip -> { n, until }
+
+function safeEqual(a, b){
+  const ha = createHash("sha256").update(String(a)).digest();
+  const hb = createHash("sha256").update(String(b)).digest();
+  return timingSafeEqual(ha, hb);
+}
+function cookieOf(req, name){
+  const raw = req.headers.cookie || "";
+  for (const part of raw.split(";")){
+    const [k, ...v] = part.trim().split("=");
+    if (k === name) return decodeURIComponent(v.join("="));
+  }
+  return null;
+}
+function clientIP(req){
+  return (req.headers["x-forwarded-for"] || "").split(",")[0].trim()
+      || req.socket.remoteAddress || "?";
+}
+function lockedOut(ip){
+  const f = failures.get(ip);
+  return f && f.until > Date.now();
+}
+function noteFailure(ip){
+  const f = failures.get(ip) || { n: 0, until: 0 };
+  f.n++;
+  if (f.n >= 5) { f.until = Date.now() + 60_000; f.n = 0; }   // 5 pogingen, dan een minuut wachten
+  failures.set(ip, f);
+}
+function authed(req){
+  if (!AUTH_ON) return true;
+  const t = cookieOf(req, "hub_session");
+  return !!t && sessions.has(t);
+}
+
+const LOGIN_PAGE = (msg) => `<!doctype html><html lang="nl"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>Validatiedesk</title>
+<style>
+:root{color-scheme:dark}
+body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0B1220;color:#E8EDF7;
+ font-family:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+form{background:#151F35;border:1px solid #38496B;border-radius:5px;padding:26px 24px;width:min(340px,92vw)}
+h1{margin:0 0 4px;font-size:15px;letter-spacing:.08em}
+p{margin:0 0 18px;font-size:13px;color:#9BA9C4}
+label{display:block;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#6B7A99;margin-bottom:5px}
+input{width:100%;box-sizing:border-box;font:inherit;font-size:15px;padding:9px 11px;border-radius:3px;
+ border:1px solid #38496B;background:#111A2C;color:#E8EDF7}
+button{margin-top:14px;width:100%;font:inherit;font-size:14px;font-weight:600;padding:10px;border-radius:3px;
+ border:0;background:#F5C542;color:#141C2E;cursor:pointer}
+.err{margin:12px 0 0;font-size:12.5px;color:#F0B454}
+</style></head><body>
+<form method="POST" action="/login">
+<h1>VALIDATIEDESK</h1>
+<p>Deze hub is met een wachtwoord afgeschermd.</p>
+<label for="w">Wachtwoord</label>
+<input id="w" name="password" type="password" autofocus autocomplete="current-password">
+<button type="submit">Openen</button>
+${msg ? `<p class="err">${msg}</p>` : ""}
+</form></body></html>`;
 
 function lanAddress(){
   for (const iface of Object.values(networkInterfaces())){
@@ -160,6 +235,30 @@ function send(res, code, body, type="application/json; charset=utf-8"){
 const server = createServer(async (req,res)=>{
   const url = new URL(req.url, `http://localhost:${PORT}`);
   try{
+    if (AUTH_ON){
+      const ip = clientIP(req);
+      if (url.pathname === "/login" && req.method === "POST"){
+        if (lockedOut(ip))
+          return send(res, 429, LOGIN_PAGE("Te veel pogingen. Wacht een minuut."), "text/html; charset=utf-8");
+        let body = ""; for await (const c of req){ body += c; if (body.length > 4096) break; }
+        const given = new URLSearchParams(body).get("password") || "";
+        if (safeEqual(given, PASSWORD)){
+          const token = randomBytes(32).toString("hex");
+          sessions.add(token);
+          const secure = (req.headers["x-forwarded-proto"] === "https") ? "; Secure" : "";
+          res.writeHead(302, { location: "/",
+            "set-cookie": `hub_session=${token}; HttpOnly; Path=/; Max-Age=2592000; SameSite=Lax${secure}` });
+          return res.end();
+        }
+        noteFailure(ip);
+        return send(res, 401, LOGIN_PAGE("Wachtwoord klopt niet."), "text/html; charset=utf-8");
+      }
+      if (!authed(req)){
+        if (url.pathname.startsWith("/api/"))
+          return send(res, 401, '{"error":"niet ingelogd"}');
+        return send(res, 200, LOGIN_PAGE(""), "text/html; charset=utf-8");
+      }
+    }
     if(url.pathname === "/api/state"){
       const [agents, drafts, desk, capabilities] = await Promise.all(
         [readAgents(), readDrafts(), readDesk(), readCapabilities()]);
@@ -213,15 +312,23 @@ function banner(port){
   console.log(box(`    http://localhost:${port}`));
   if (OPEN_TO_NETWORK){
     console.log(box());
-    console.log(box("  Op je telefoon (zelfde wifi):"));
-    console.log(box(lan ? `    http://${lan}:${port}` : "    geen netwerkadres gevonden"));
+    console.log(box("  Op je telefoon:"));
+    console.log(box(lan ? `    http://${lan}:${port}` : "    via het adres van deze server"));
   }
   console.log(box());
   console.log(box("  Stoppen: Ctrl+C"));
   console.log(bar("└","┘"));
-  if (OPEN_TO_NETWORK){
-    console.log("\n  Let op: iedereen op dit wifi-netwerk kan de hub nu openen");
-    console.log("  en aanpassen. Doe dit thuis, niet op openbare wifi.");
+  if (AUTH_ON){
+    console.log("");
+    if (GENERATED){
+      console.log(`  Wachtwoord (deze keer): ${PASSWORD}`);
+      console.log(`  Wil je een vast wachtwoord? Zet HUB_PASSWORD.`);
+    } else {
+      console.log(`  Wachtwoord: uit HUB_PASSWORD.`);
+    }
+    console.log("");
+    console.log("  De hub is buiten deze computer bereikbaar. Draai je dit op een");
+    console.log("  server aan het internet, zet er dan HTTPS voor (zie deploy/).");
   }
   console.log(`\n  Workspace: ${ROOT}\n`);
 }

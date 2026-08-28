@@ -1,0 +1,14 @@
+# Caddy zet automatisch HTTPS aan via Let's Encrypt.
+# __DOMAIN__ wordt ingevuld door setup-vps.sh.
+__DOMAIN__ {
+    reverse_proxy 127.0.0.1:__PORT__
+
+    header {
+        Strict-Transport-Security "max-age=31536000"
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "no-referrer"
+        -Server
+    }
+
+    encode gzip
+}
