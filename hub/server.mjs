@@ -7,7 +7,7 @@ import { existsSync } from "node:fs";
 import { join, dirname, extname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
-import { platform } from "node:os";
+import { platform, networkInterfaces } from "node:os";
 
 const NODE_MAJOR = Number(process.versions.node.split(".")[0]);
 if (NODE_MAJOR < 18) {
@@ -21,6 +21,19 @@ const ROOT = resolve(HERE, "..");
 const PUBLIC = join(HERE, "public");
 const DESK = join(HERE, "desk.json");
 const PORT = Number(process.env.PORT || 4317);
+// Standaard alleen bereikbaar op deze computer. HOST=0.0.0.0 stelt hem open
+// voor andere apparaten op hetzelfde wifi-netwerk (zie "npm run mobiel").
+const HOST = process.env.HOST || "127.0.0.1";
+const OPEN_TO_NETWORK = HOST === "0.0.0.0";
+
+function lanAddress(){
+  for (const iface of Object.values(networkInterfaces())){
+    for (const net of iface || []){
+      if (net.family === "IPv4" && !net.internal) return net.address;
+    }
+  }
+  return null;
+}
 
 const MIME = { ".html":"text/html; charset=utf-8", ".js":"text/javascript; charset=utf-8",
   ".css":"text/css; charset=utf-8", ".json":"application/json; charset=utf-8",
@@ -191,15 +204,25 @@ function banner(port){
   const W = 46;
   const box = (t="") => `  │${t.padEnd(W)}│`;
   const bar = (l,r) => `  ${l}${"─".repeat(W)}${r}`;
+  const lan = OPEN_TO_NETWORK ? lanAddress() : null;
   console.log("");
   console.log(bar("┌","┐"));
   console.log(box("  VALIDATIEDESK"));
   console.log(bar("├","┤"));
-  console.log(box("  Open in je browser:"));
+  console.log(box("  Op deze computer:"));
   console.log(box(`    http://localhost:${port}`));
+  if (OPEN_TO_NETWORK){
+    console.log(box());
+    console.log(box("  Op je telefoon (zelfde wifi):"));
+    console.log(box(lan ? `    http://${lan}:${port}` : "    geen netwerkadres gevonden"));
+  }
   console.log(box());
   console.log(box("  Stoppen: Ctrl+C"));
   console.log(bar("└","┘"));
+  if (OPEN_TO_NETWORK){
+    console.log("\n  Let op: iedereen op dit wifi-netwerk kan de hub nu openen");
+    console.log("  en aanpassen. Doe dit thuis, niet op openbare wifi.");
+  }
   console.log(`\n  Workspace: ${ROOT}\n`);
 }
 
@@ -225,7 +248,7 @@ function listen(port, attempt = 0){
   };
   server.once("error", onError);
   server.once("listening", onListening);
-  server.listen(port, "127.0.0.1");
+  server.listen(port, HOST);
 }
 
 for (const sig of ["SIGINT","SIGTERM"]) {

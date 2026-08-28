@@ -22,6 +22,16 @@ var SAY = {
   offphase: ["Buiten deze fase.","Later pas aan de beurt."]
 };
 
+var SCOL = {
+  idle:"var(--idle)", nieuw:"var(--wait)", opgepakt:"var(--busy)",
+  geleverd:"var(--ok)", geparkeerd:"var(--idle)", offphase:"var(--idle)"
+};
+var SLABEL = {
+  idle:"idle", nieuw:"wacht op Claude", opgepakt:"bezig",
+  geleverd:"rapport klaar", geparkeerd:"geparkeerd", offphase:"buiten fase"
+};
+function statusLabel(s){ return SLABEL[s] || s; }
+
 var S = { agents:[], drafts:[], desk:{briefs:[],decisions:[]} };
 var sel = "market-researcher";
 var view = "map";            // "map" | "hier"
@@ -277,6 +287,7 @@ function updateBubbles(){        // alleen tekst en status, geen DOM vervangen
     var say=b.querySelector(".say"), txt=bubbleText(a.id);
     if(say && say.innerHTML!==txt) say.innerHTML=txt;
   });
+  renderMobStat();
 }
 
 var bubbledOnce=false;
@@ -312,6 +323,24 @@ function renderMapOverlay(){
     +'<span class="say">Fase 1 · Valideren</span></div>';
   bw.appendChild(hq);
   bubbledOnce=true;
+  renderMobStat();
+}
+
+function renderMobStat(){
+  var m=el("mobstat"); if(!m) return;
+  var h="";
+  var sorted=S.agents.slice().sort(function(x,y){
+    return place(x.id).no.localeCompare(place(y.id).no);
+  });
+  sorted.forEach(function(a){
+    var p=place(a.id), st=statusOf(a.id);
+    var col=SCOL[st] || "var(--idle)";
+    h+='<button data-pick="'+esc(a.id)+'" aria-pressed="'+(sel===a.id?"true":"false")+'">'
+      +'<i style="background:'+col+'"></i>'
+      +'<span class="no">'+esc(p.no)+'</span><span class="nm">'+esc(p.place)+'</span>'
+      +'<span class="st">'+esc(statusLabel(st))+'</span></button>';
+  });
+  m.innerHTML=h;
 }
 
 /* ---------- panelen ---------- */
@@ -510,6 +539,8 @@ function renderAll(){
   if(hier){ hier.hidden = view!=="hier"; if(view==="hier") hier.innerHTML=renderHierarchy(); }
   var legend=document.querySelector(".legend");
   if(legend) legend.style.display = view==="map" ? "" : "none";
+  var ms=el("mobstat");
+  if(ms) ms.style.display = view==="map" ? "" : "none";
 
   if(view==="map"){ renderMapOverlay(); renderPanel(); }
   else { el("panel").innerHTML = renderCapability(); }
@@ -568,7 +599,7 @@ document.addEventListener("click",function(e){
   var t=e.target.closest("[data-pick]");
   if(t){
     sel=t.dataset.pick;
-    document.querySelectorAll(".hit").forEach(function(h){
+    document.querySelectorAll(".hit, .mobstat button").forEach(function(h){
       h.setAttribute("aria-pressed", h.dataset.pick===sel ? "true":"false");
     });
     renderPanel();

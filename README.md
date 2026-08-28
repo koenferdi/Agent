@@ -28,6 +28,32 @@ Stoppen: Ctrl+C in het venster, of het venster sluiten.
 > ontwikkelaar niet te verifiëren is: rechtermuisknop op het bestand → Openen →
 > Openen. Dat hoeft maar één keer.
 
+## Op je telefoon
+
+Telefoon en computer moeten op hetzelfde wifi-netwerk zitten, en de hub moet
+op je computer draaien.
+
+| Jouw systeem | Wat je doet |
+| --- | --- |
+| macOS | Dubbelklik **`Start hub (ook op telefoon).command`** |
+| Windows | Dubbelklik **`Start hub (ook op telefoon).bat`** |
+| Terminal | `npm run mobiel` |
+
+In het venster verschijnt dan een tweede adres, iets als `http://192.168.1.42:4317`.
+Dat tik je in op je telefoon.
+
+> **Let op:** in deze stand kan iedereen op hetzelfde wifi-netwerk de hub openen
+> en aanpassen. Doe dit thuis, niet op openbare wifi. De gewone starter houdt
+> hem afgeschermd op je eigen computer.
+
+Op een klein scherm verandert de weergave: de wolkjes verdwijnen en de status
+van elke agent komt als lijst onder de kaart te staan. Tikken werkt hetzelfde
+als klikken.
+
+Staat je computer uit, dan is de hub niet bereikbaar — het is een lokale server,
+geen website. Wil je iets kunnen bekijken zonder dat je computer aanstaat, zeg
+het dan; ik kan er een momentopname van publiceren.
+
 **De laatste versie ophalen** voordat je start:
 
 ```bash

@@ -6,7 +6,10 @@
   "type": "module",
   "scripts": {
     "start": "node hub/server.mjs",
-    "hub": "node hub/server.mjs"
+    "hub": "node hub/server.mjs",
+    "mobiel": "HOST=0.0.0.0 node hub/server.mjs"
   },
-  "engines": { "node": ">=18" }
+  "engines": {
+    "node": ">=18"
+  }
 }
