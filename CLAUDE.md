@@ -64,12 +64,20 @@ Voorbeelden: ai-agent-research.md, youtube-script-outline.md, workflow-documenta
 ## Folder Structure and Routing
 
 - /workflows - Workflow-instructies, agent-definities, procesdocumenten. Voor herbruikbare processen.
+- /workflows/capabilities - Eén bestand per capaciteit: wat het vervangt, waar het op de autonomieladder staat, wat ik zelf nog doe, welke agent het uitvoert, en de SOP. De hub leest deze bestanden.
 - /outputs - Afgeronde, goedgekeurde deliverables. Alleen na mijn akkoord.
 - /resources - Referentiemateriaal, bronnen, onderzoek, voorbeelden. Verzameld, niet geschreven.
-- /drafts - Work in progress. Standaardlocatie voor nieuw werk.
+- /drafts - Work in progress. Standaardlocatie voor nieuw werk. Rapporten van agents komen hier.
 - /templates - Herbruikbare templates en frameworks.
+- /hub - De lokale werkomgeving (`node hub/server.mjs`). Gereedschap, geen content.
 
 Standaardregel: nieuw werk begint in /drafts. Het gaat pas naar /outputs als ik zeg dat het goedgekeurd is. Schrijf nooit direct naar /outputs zonder te vragen.
+
+## Rapporten van agents
+
+Een rapport in /drafts begint met een metadatablok tussen ``` met in elk geval Verdict, Confidence en Sources. De hub leest dat blok uit om oordeel en zekerheid te tonen. Laat het staan.
+
+Cijfers worden gelabeld als gemeten, afgeleid of geschat. Nooit een schatting presenteren als data. Is het bewijs te dun voor een oordeel, zeg dat dan in plaats van er een te produceren.
 
 ## Defaults
 

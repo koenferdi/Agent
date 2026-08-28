@@ -268,6 +268,18 @@ function bubbleText(id){
   return lines[Math.floor(tick/300)%lines.length];
 }
 
+function updateBubbles(){        // alleen tekst en status, geen DOM vervangen
+  S.agents.forEach(function(a){
+    var b=document.querySelector('.bub[data-pick="'+a.id+'"]');
+    if(!b) return;
+    var st=statusOf(a.id);
+    if(b.dataset.s!==st) b.dataset.s=st;
+    var say=b.querySelector(".say"), txt=bubbleText(a.id);
+    if(say && say.innerHTML!==txt) say.innerHTML=txt;
+  });
+}
+
+var bubbledOnce=false;
 function renderMapOverlay(){
   var bw=el("bubbles"), hw=el("hits");
   bw.innerHTML="";hw.innerHTML="";
@@ -275,7 +287,7 @@ function renderMapOverlay(){
     var p=place(a.id), st=statusOf(a.id);
     var top=(p.kind==="tower"?p.y-52:(p.kind==="hall"?p.y-34:p.y-32));
     var b=document.createElement("div");
-    b.className="bub pop"; b.dataset.s=st; b.dataset.pick=a.id;
+    b.className="bub"+(bubbledOnce?"":" pop"); b.dataset.s=st; b.dataset.pick=a.id;
     b.style.left=(p.x/W*100).toFixed(2)+"%";
     b.style.top=(top/H*100).toFixed(2)+"%";
     b.innerHTML='<div class="box"><span class="who">'+esc(p.no+" "+p.place)+'</span>'
@@ -299,6 +311,7 @@ function renderMapOverlay(){
   hq.innerHTML='<div class="box"><span class="who">00 HOOFDKWARTIER</span>'
     +'<span class="say">Fase 1 · Valideren</span></div>';
   bw.appendChild(hq);
+  bubbledOnce=true;
 }
 
 /* ---------- panelen ---------- */
@@ -553,7 +566,14 @@ document.addEventListener("click",function(e){
   var cp=e.target.closest("[data-cap]");
   if(cp){ capSel=cp.dataset.cap; renderAll(); return; }
   var t=e.target.closest("[data-pick]");
-  if(t){ sel=t.dataset.pick; renderAll(); return; }
+  if(t){
+    sel=t.dataset.pick;
+    document.querySelectorAll(".hit").forEach(function(h){
+      h.setAttribute("aria-pressed", h.dataset.pick===sel ? "true":"false");
+    });
+    renderPanel();
+    return;
+  }
   var rd=e.target.closest("[data-read]");
   if(rd){ openReader(rd.dataset.read); return; }
   if(e.target.id==="f-add"){
@@ -599,7 +619,7 @@ setInterval(function(){
   var d=new Date();
   el("clock").textContent=d.toLocaleTimeString("nl-NL",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
 },1000);
-setInterval(function(){ if(view==="map") renderMapOverlay(); }, 2600);
+setInterval(function(){ if(view==="map") updateBubbles(); }, 2600);
 
 setupMap();
 load();

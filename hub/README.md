@@ -2,27 +2,14 @@
 
 De Validatiedesk: het gedeelde werkblad tussen mij en Claude.
 
-`validatiedesk.html` wordt gepubliceerd als Artifact. De pagina onthoudt zijn
-eigen inhoud, dus wat ik erin zet blijft staan en Claude kan het uitlezen.
+`server.mjs` plus `public/` vormen de werkende omgeving. `validatiedesk.html` is
+de oudere gepubliceerde versie: een losse pagina zonder toegang tot de bestanden.
+Die is achterhaald door de lokale app en wordt niet meer bijgewerkt.
 
 ## Wat hoort hier
 
 - De bronbestanden van de hub en latere dashboards
 - Niets anders: dit is gereedschap, geen content
-
-## Hoe de lus werkt
-
-1. Ik zet een opdracht of een besluit in de pagina
-2. Ik zeg tegen Claude: lees de validatiedesk
-3. Claude leest de pagina, draait de agent en zet de bevindingen erin terug
-4. Het volledige rapport landt in `/drafts`, de samenvatting staat in de hub
-
-De pagina praat niet zelf met de agents. Die draaien in Claude Code.
-
-## Publiceren
-
-Bewerk het bestand en publiceer het opnieuw via hetzelfde pad, dan blijft de
-URL gelijk. Publiceren met een ander pad maakt een losse tweede pagina aan.
 
 ## Lokale werkomgeving
 
