@@ -6,6 +6,15 @@ import { readFile, readdir, writeFile, stat } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join, dirname, extname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { spawn } from "node:child_process";
+import { platform } from "node:os";
+
+const NODE_MAJOR = Number(process.versions.node.split(".")[0]);
+if (NODE_MAJOR < 18) {
+  console.error(`\n  Deze hub heeft Node 18 of hoger nodig. Jij hebt ${process.versions.node}.`);
+  console.error(`  Download een nieuwere versie op https://nodejs.org en probeer het opnieuw.\n`);
+  process.exit(1);
+}
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..");
@@ -168,8 +177,59 @@ const server = createServer(async (req,res)=>{
   }
 });
 
-server.listen(PORT, "127.0.0.1", ()=>{
-  console.log(`\n  Validatiedesk draait op http://localhost:${PORT}`);
-  console.log(`  Workspace: ${ROOT}`);
-  console.log(`  Stoppen: Ctrl+C\n`);
-});
+function openBrowser(url){
+  if (process.env.NO_OPEN) return;
+  const cmd = platform() === "darwin" ? "open"
+            : platform() === "win32"  ? "cmd"
+            : "xdg-open";
+  const args = platform() === "win32" ? ["/c", "start", "", url] : [url];
+  try { spawn(cmd, args, { stdio: "ignore", detached: true }).unref(); }
+  catch { /* geen browser? de URL staat hieronder */ }
+}
+
+function banner(port){
+  const W = 46;
+  const box = (t="") => `  │${t.padEnd(W)}│`;
+  const bar = (l,r) => `  ${l}${"─".repeat(W)}${r}`;
+  console.log("");
+  console.log(bar("┌","┐"));
+  console.log(box("  VALIDATIEDESK"));
+  console.log(bar("├","┤"));
+  console.log(box("  Open in je browser:"));
+  console.log(box(`    http://localhost:${port}`));
+  console.log(box());
+  console.log(box("  Stoppen: Ctrl+C"));
+  console.log(bar("└","┘"));
+  console.log(`\n  Workspace: ${ROOT}\n`);
+}
+
+function listen(port, attempt = 0){
+  // Elke listen()-poging registreert eigen handlers en ruimt ze zelf op,
+  // anders vuurt de callback van een mislukte poging alsnog bij de volgende.
+  const onError = (err)=>{
+    server.off("listening", onListening);
+    if (err.code === "EADDRINUSE" && attempt < 10) return listen(port + 1, attempt + 1);
+    if (err.code === "EADDRINUSE") {
+      console.error(`\n  De poorten ${PORT} tot ${port} zijn allemaal bezet.`);
+      console.error(`  Draait de hub al in een ander venster? Kijk daar eerst.\n`);
+    } else {
+      console.error(`\n  Starten mislukt: ${err.message}\n`);
+    }
+    process.exit(1);
+  };
+  const onListening = ()=>{
+    server.off("error", onError);
+    if (port !== PORT) console.log(`\n  (Poort ${PORT} was bezet, uitgeweken naar ${port}.)`);
+    banner(port);
+    openBrowser(`http://localhost:${port}`);
+  };
+  server.once("error", onError);
+  server.once("listening", onListening);
+  server.listen(port, "127.0.0.1");
+}
+
+for (const sig of ["SIGINT","SIGTERM"]) {
+  process.on(sig, ()=>{ console.log("\n  Hub gestopt.\n"); process.exit(0); });
+}
+
+listen(PORT);

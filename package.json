@@ -1,0 +1,12 @@
+{
+  "name": "agent-workspace",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Werkplaats om een bedrijf op te zetten met AI-agents, plus de lokale hub.",
+  "type": "module",
+  "scripts": {
+    "start": "node hub/server.mjs",
+    "hub": "node hub/server.mjs"
+  },
+  "engines": { "node": ">=18" }
+}

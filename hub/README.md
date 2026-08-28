@@ -13,11 +13,11 @@ Die is achterhaald door de lokale app en wordt niet meer bijgewerkt.
 
 ## Lokale werkomgeving
 
-```bash
-node hub/server.mjs        # start op http://localhost:4317
-```
+Dubbelklik `Start hub.command` (macOS), `Start hub.bat` (Windows) of
+`start-hub.sh` (Linux). Vanuit de terminal: `npm start`.
 
-Geen dependencies, alleen Node built-ins. De server leest live uit de workspace:
+Geen dependencies, alleen Node built-ins. De browser opent vanzelf; is de poort
+bezet, dan wijkt de server uit naar de volgende vrije poort. De server leest live uit de workspace:
 
 - **Agents** uit `.claude/agents/*.md` — naam, beschrijving, model en tools uit de frontmatter
 - **Rapporten** uit `drafts/*.md` — titel en het metadatablok bovenaan (oordeel, zekerheid, bronnen)

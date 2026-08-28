@@ -5,15 +5,34 @@ en de analyse, ik beslis.
 
 De huidige fase is **valideren**. Er is nog geen bedrijf en nog geen gekozen markt.
 
-## Snel starten
+## De hub openen
+
+**Eenmalig:** installeer Node (versie 18 of hoger) via [nodejs.org](https://nodejs.org) —
+kies de LTS-versie. Verder is er niets te installeren.
+
+**Daarna, elke keer:**
+
+| Jouw systeem | Wat je doet |
+| --- | --- |
+| macOS | Dubbelklik **`Start hub.command`** |
+| Windows | Dubbelklik **`Start hub.bat`** |
+| Linux | Dubbelklik **`start-hub.sh`**, of `./start-hub.sh` |
+| Terminal | `npm start` |
+
+De browser opent vanzelf op `http://localhost:4317`. Is die poort bezet, dan wijkt
+de hub uit naar de volgende vrije poort en zegt hij welke.
+
+Stoppen: Ctrl+C in het venster, of het venster sluiten.
+
+> Krijg je op macOS de melding dat het bestand niet geopend kan worden omdat de
+> ontwikkelaar niet te verifiëren is: rechtermuisknop op het bestand → Openen →
+> Openen. Dat hoeft maar één keer.
+
+**De laatste versie ophalen** voordat je start:
 
 ```bash
-node hub/server.mjs        # http://localhost:4317
+git pull origin main
 ```
-
-Geen dependencies. De hub leest de echte bestanden uit deze map en toont twee
-weergaven: een kaart met de agents en hun status, en een hiërarchie met de
-capaciteiten en hun SOP's.
 
 ## Wat waar staat
 
