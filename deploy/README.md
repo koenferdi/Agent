@@ -85,14 +85,26 @@ sudo systemctl restart validatiedesk     # herstarten
 sudo journalctl -u validatiedesk -f      # meekijken
 ```
 
-Wachtwoord kwijt:
+Wachtwoord bekijken of wijzigen:
 
 ```bash
-sudo grep HUB_PASSWORD /etc/systemd/system/validatiedesk.service
+sudo bash deploy/wachtwoord.sh                      # toont het huidige
+sudo bash deploy/wachtwoord.sh 'mijn-nieuwe-woord'  # stelt een nieuw in
 ```
 
-Wachtwoord wijzigen: pas die regel aan, dan
-`sudo systemctl daemon-reload && sudo systemctl restart validatiedesk`.
+Het script herstart de service zelf. Je moet daarna op al je apparaten
+opnieuw inloggen.
+
+### Wachtwoord werkt niet?
+
+De hub negeert spaties voor en achter het wachtwoord, dus plakken uit een
+bericht gaat goed. Wat wel misgaat:
+
+- **Een hoofdletter van je telefoontoetsenbord.** Het invoerveld staat op
+  geen-hoofdletters, maar controleer het eerst teken toch even.
+- **Het script twee keer gedraaid.** Elke keer komt er een nieuw wachtwoord.
+  Kijk met het commando hierboven wat er nu echt staat.
+- **Vijf keer fout geprobeerd.** Dan zit je adres een minuut op slot. Wachten.
 
 ## Bijwerken
 

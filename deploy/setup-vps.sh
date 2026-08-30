@@ -55,7 +55,9 @@ if [[ -n "${HUB_PASSWORD:-}" ]]; then
   PASSWORD="$HUB_PASSWORD"
   say "  Wachtwoord overgenomen uit HUB_PASSWORD."
 else
-  PASSWORD="$(head -c 12 /dev/urandom | base64 | tr -d '/+=' | head -c 14)"
+  # Leesbaar wachtwoord: geen tekens die op elkaar lijken, groepjes van vier.
+  gen4(){ tr -dc 'abcdefghjkmnpqrstuvwxyz23456789' < /dev/urandom | head -c 4; }
+  PASSWORD="$(gen4)-$(gen4)-$(gen4)"
 fi
 
 # ---------------------------------------------------------------- node

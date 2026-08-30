@@ -32,8 +32,16 @@ const OPEN_TO_NETWORK = !LOOPBACK;
 // Staat er geen in HUB_PASSWORD, dan verzint de server er zelf een en drukt hem af.
 let PASSWORD = process.env.HUB_PASSWORD || "";
 let GENERATED = false;
+function friendlyPassword(){
+  // Geen tekens die op elkaar lijken (0/O, 1/l/I), in groepjes van vier:
+  // makkelijk overtypen op een telefoon.
+  const abc = "abcdefghjkmnpqrstuvwxyz23456789";
+  const pick = (n) => Array.from(randomBytes(n))
+    .map(b => abc[b % abc.length]).join("");
+  return `${pick(4)}-${pick(4)}-${pick(4)}`;
+}
 if (OPEN_TO_NETWORK && !PASSWORD) {
-  PASSWORD = randomBytes(6).toString("base64url");
+  PASSWORD = friendlyPassword();
   GENERATED = true;
 }
 // Beveiliging aan zodra de hub buiten deze computer bereikbaar is, EN altijd
@@ -96,7 +104,8 @@ button{margin-top:14px;width:100%;font:inherit;font-size:14px;font-weight:600;pa
 <h1>VALIDATIEDESK</h1>
 <p>Deze hub is met een wachtwoord afgeschermd.</p>
 <label for="w">Wachtwoord</label>
-<input id="w" name="password" type="password" autofocus autocomplete="current-password">
+<input id="w" name="password" type="password" autofocus autocomplete="current-password"
+ autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="text">
 <button type="submit">Openen</button>
 ${msg ? `<p class="err">${msg}</p>` : ""}
 </form></body></html>`;
@@ -241,8 +250,8 @@ const server = createServer(async (req,res)=>{
         if (lockedOut(ip))
           return send(res, 429, LOGIN_PAGE("Te veel pogingen. Wacht een minuut."), "text/html; charset=utf-8");
         let body = ""; for await (const c of req){ body += c; if (body.length > 4096) break; }
-        const given = new URLSearchParams(body).get("password") || "";
-        if (safeEqual(given, PASSWORD)){
+        const given = (new URLSearchParams(body).get("password") || "").trim();
+        if (safeEqual(given, String(PASSWORD).trim())){
           const token = randomBytes(32).toString("hex");
           sessions.add(token);
           const secure = (req.headers["x-forwarded-proto"] === "https") ? "; Secure" : "";
