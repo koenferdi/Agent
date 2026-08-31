@@ -2,8 +2,15 @@
 <html lang="nl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Validatiedesk</title>
+<meta name="theme-color" content="#0B1220">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Validatiedesk">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icoon-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -26,15 +33,35 @@
 
   <div class="mapbox">
     <div class="tabs" id="tabs">
-      <button data-view="map" aria-selected="true">KAART</button>
+      <button data-view="map" aria-selected="true">VLOER</button>
       <button data-view="hier" aria-selected="false">HIERARCHIE</button>
     </div>
     <div class="hier" id="hier" hidden></div>
-    <div class="stage" id="stage">
-      <canvas id="map"></canvas>
-      <div id="bubbles"></div>
-      <div id="hits"></div>
+
+    <div class="vloerbox" id="vloerbox">
+      <div class="stage" id="stage">
+        <canvas id="vloer" aria-label="Isometrische plattegrond van het kantoor"></canvas>
+        <div class="hud" id="hud"></div>
+        <div class="kamers" id="kamers"></div>
+        <div class="vloerknoppen">
+          <button id="bDemo" aria-pressed="false" title="Laat de agents uit zichzelf rondlopen. Verzonnen gedrag.">Rondloopmodus</button>
+          <button id="bFit" title="Hele vloer in beeld">Passend</button>
+          <a class="knopje" href="/vloer.html" title="Alleen de vloer, volledig scherm">Vol scherm</a>
+        </div>
+        <p class="vloerlabel" id="vloerlabel">
+          <b>Weergave, geen meting.</b> Deze vloer toont wat er in
+          <code>desk.json</code> en <code>drafts/</code> staat. Beweegt er iemand, dan is daar iets veranderd.
+        </p>
+      </div>
+
+      <aside class="feed">
+        <h2>LIVE</h2>
+        <div id="feedlijst"></div>
+        <p class="feednote">Elke regel is een verandering in een bestand, gezien bij het inlezen.
+          De tijd erbij is het moment dat de hub het zag — niet per se het moment dat het gebeurde.</p>
+      </aside>
     </div>
+
     <div class="mobstat" id="mobstat"></div>
     <div class="legend">
       <span><i class="d idle"></i>idle</span>
@@ -62,6 +89,10 @@
   </div>
 </div>
 
-<script src="/app.js"></script>
+<script type="module" src="/app.js"></script>
+<script>
+if ("serviceWorker" in navigator)
+  addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(()=>{}));
+</script>
 </body>
 </html>

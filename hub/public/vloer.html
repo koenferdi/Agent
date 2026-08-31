@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Vloer · Validatiedesk</title>
+<meta name="theme-color" content="#0B1220">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Vloer">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icoon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%230B1220'/%3E%3Cpath d='M3 11h10v2H3zM5 6h6v5H5zM7 3h2v3H7z' fill='%23F5C542'/%3E%3C/svg%3E">
+<style>
+:root{
+  --night:#0B1220; --night-2:#111A2C; --panel:#151F35; --panel-2:#1C2942;
+  --line:#27354F; --line-2:#38496B;
+  --ink:#E8EDF7; --ink-soft:#9BA9C4; --ink-faint:#6B7A99;
+  --gold:#F5C542; --ok:#5FCE9B; --wait:#F0B454; --busy:#6BA8F5; --idle:#5A6982;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--night);color:var(--ink);
+  font-family:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  font-size:14px;-webkit-font-smoothing:antialiased;overscroll-behavior:none}
+button{font:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+a{color:var(--gold)}
+
+#vloer{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+
+.bar{position:fixed;top:0;left:0;right:0;display:flex;align-items:center;gap:10px;
+  padding:calc(9px + env(safe-area-inset-top)) 12px 9px;
+  background:linear-gradient(180deg,rgba(11,18,32,.92),rgba(11,18,32,0));z-index:3}
+.bar h1{margin:0;font-family:"Press Start 2P",monospace;font-size:9px;letter-spacing:.04em;color:var(--ink-soft)}
+.bar .rechts{margin-left:auto;display:flex;gap:6px}
+.knopje{background:rgba(21,31,53,.9);border:1px solid var(--line-2);color:var(--ink-soft);
+  border-radius:3px;padding:8px 10px;font-size:11.5px;font-weight:500;text-decoration:none;
+  backdrop-filter:blur(6px)}
+.knopje[aria-pressed="true"]{border-color:var(--wait);color:var(--wait);background:rgba(240,180,84,.14)}
+
+.hud{position:fixed;top:calc(50px + env(safe-area-inset-top));left:12px;z-index:3;display:flex;
+  flex-wrap:wrap;gap:3px 12px;font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--ink-faint);background:rgba(11,18,32,.72);
+  border:1px solid var(--line);border-radius:3px;padding:6px 10px;backdrop-filter:blur(6px);
+  max-width:calc(100% - 24px)}
+.hud b{color:var(--ink);font-weight:600}
+.hud b.ok{color:var(--ok)} .hud b.wait{color:var(--wait)} .hud b.busy{color:var(--busy)}
+
+.kamers{position:fixed;left:0;right:0;top:calc(88px + env(safe-area-inset-top));z-index:3;
+  display:flex;gap:5px;overflow-x:auto;padding:0 12px;scrollbar-width:none}
+.kamers::-webkit-scrollbar{display:none}
+.kamers button{flex:none;font-family:"IBM Plex Mono",monospace;font-size:11px;
+  background:rgba(21,31,53,.9);border:1px solid var(--line-2);color:var(--ink-faint);
+  border-radius:99px;padding:7px 12px;backdrop-filter:blur(6px)}
+
+.melding{position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));
+  z-index:2;pointer-events:none}
+.label{margin:0 0 8px;background:rgba(11,18,32,.84);border:1px solid var(--line);
+  border-left:2px solid var(--line-2);border-radius:3px;padding:7px 10px;font-size:11px;
+  line-height:1.45;color:var(--ink-faint);backdrop-filter:blur(6px)}
+body.demo .label{border-left-color:var(--wait);color:var(--wait)}
+
+.kaart{pointer-events:auto;background:rgba(21,31,53,.95);border:1px solid var(--line-2);
+  border-radius:6px;padding:12px 13px;backdrop-filter:blur(10px);
+  box-shadow:0 16px 44px rgba(0,0,0,.6);transform:translateY(140%);
+  transition:transform .26s cubic-bezier(.2,.9,.3,1)}
+.kaart.open{transform:none}
+.kop{display:flex;align-items:center;gap:10px}
+.kop .no{width:32px;height:32px;border-radius:3px;display:grid;place-items:center;flex:none;
+  font-family:"Press Start 2P",monospace;font-size:8px;color:#0B1220}
+.kop h2{margin:0;font-size:15px}
+.kop p{margin:2px 0 0;font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--ink-faint)}
+.kop .x{margin-left:auto;background:none;border:0;color:var(--ink-faint);font-size:20px;padding:0 4px}
+.rij{display:flex;gap:7px;flex-wrap:wrap;margin-top:11px}
+.chip{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.06em;text-transform:uppercase;
+  padding:3px 7px;border-radius:2px;border:1px solid currentColor}
+.chip.nieuw{color:var(--wait)} .chip.opgepakt{color:var(--busy)}
+.chip.geleverd{color:var(--ok)} .chip.idle,.chip.geparkeerd,.chip.offphase{color:var(--idle)}
+.kaart .werk{margin:10px 0 0;font-size:12.5px;color:var(--ink-soft);line-height:1.5}
+.kaart .heen{display:flex;gap:5px;margin-top:11px;flex-wrap:wrap}
+.kaart .heen button{flex:1;min-width:74px;background:var(--panel-2);border:1px solid var(--line-2);
+  color:var(--ink);border-radius:3px;padding:8px 4px;font-size:11.5px;font-weight:500}
+
+.feed{position:fixed;left:0;right:0;bottom:0;z-index:4;background:var(--night-2);
+  border-top:1px solid var(--line-2);transform:translateY(calc(100% - 0px));
+  transition:transform .26s cubic-bezier(.2,.9,.3,1);
+  padding-bottom:env(safe-area-inset-bottom);max-height:62vh;display:flex;flex-direction:column}
+.feed.open{transform:none}
+.feed h3{margin:0;padding:11px 14px;font-family:"Press Start 2P",monospace;font-size:8px;
+  color:var(--ink-soft);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+.feed h3 button{margin-left:auto;background:none;border:0;color:var(--ink-faint);font-size:18px}
+#lijst{overflow-y:auto;padding:6px 14px 14px}
+.regel{display:flex;gap:8px;align-items:baseline;padding:7px 0;border-bottom:1px solid rgba(39,53,79,.6);
+  font-size:12.5px;line-height:1.45;color:var(--ink-soft)}
+.regel .p{width:6px;height:6px;border-radius:50%;flex:none}
+.regel time{font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--ink-faint);flex:none}
+.regel .mrk{margin-left:auto;font-family:"IBM Plex Mono",monospace;font-size:9px;text-transform:uppercase;
+  color:var(--wait);border:1px solid var(--wait);border-radius:2px;padding:1px 4px;flex:none}
+</style>
+</head>
+<body>
+<canvas id="vloer" aria-label="Isometrische plattegrond van het kantoor"></canvas>
+
+<div class="hud" id="hud"></div>
+<div class="kamers" id="kamers"></div>
+
+<div class="bar">
+  <h1>VLOER</h1>
+  <div class="rechts">
+    <button class="knopje" id="bDemo" aria-pressed="false">Rondloop</button>
+    <button class="knopje" id="bFit">Passend</button>
+    <button class="knopje" id="bFeed">Live</button>
+    <a class="knopje" href="/">Desk</a>
+  </div>
+</div>
+
+<div class="melding">
+  <p class="label" id="label"><b>Weergave, geen meting.</b> Deze vloer toont wat er in desk.json en drafts/ staat.</p>
+  <div class="kaart" id="kaart">
+    <div class="kop">
+      <div class="no" id="kNo">--</div>
+      <div><h2 id="kNaam">—</h2><p id="kId">—</p></div>
+      <button class="x" id="kX" aria-label="Sluiten">×</button>
+    </div>
+    <div class="rij" id="kStatus"></div>
+    <p class="werk" id="kWerk"></p>
+    <div class="heen">
+      <button data-heen="desk">Bureau</button>
+      <button data-heen="coffee">Koffie</button>
+      <button data-heen="meeting">Overleg</button>
+      <button data-heen="lounge">Lounge</button>
+    </div>
+  </div>
+</div>
+
+<div class="feed" id="feed">
+  <h3>LIVE · WAT ER VERANDERDE <button id="bDicht" aria-label="Sluiten">×</button></h3>
+  <div id="lijst"></div>
+</div>
+
+<script type="module">
+import { IsoBridge, metaVan, statusVanAgent, STATUS_LABEL } from "/iso/iso-bridge.js";
+import { AGENT_COLOR, THEME } from "/iso/iso-theme.js";
+import { ZONES } from "/iso/iso-map.js";
+
+const $ = id => document.getElementById(id);
+let S = { agents:[], drafts:[], desk:{briefs:[],decisions:[]} };
+let sel = null, demo = false;
+
+const vloer = new IsoBridge($("vloer"), {
+  onSelect: id => openKaart(id),
+  onFeed: r => regel(r)
+});
+
+function kleur(id){ return AGENT_COLOR[id] || THEME.busy; }
+
+function regel(r){
+  const d = document.createElement("div");
+  d.className = "regel";
+  d.innerHTML = `<span class="p" style="background:${r.id ? kleur(r.id) : "#6B7A99"}"></span>`
+    + `<time>${r.tijd.toLocaleTimeString("nl-NL",{hour:"2-digit",minute:"2-digit"})}</time>`
+    + `<span>${r.tekst.replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]))}</span>`
+    + (r.soort === "demo" ? '<span class="mrk">demo</span>' : "");
+  $("lijst").prepend(d);
+  while ($("lijst").children.length > 60) $("lijst").lastChild.remove();
+}
+
+function openKaart(id){
+  const a = S.agents.find(x => x.id === id); if(!a) return;
+  sel = id;
+  const m = metaVan(id), st = statusVanAgent(S, id);
+  $("kNo").textContent = m.no; $("kNo").style.background = kleur(id);
+  $("kNaam").textContent = m.naam;
+  $("kId").textContent = a.id + " · " + (a.model || "inherit");
+  $("kStatus").innerHTML = `<span class="chip ${st}">${STATUS_LABEL[st] || st}</span>`;
+  const bs = (S.desk.briefs || []).filter(b => b.agent === id);
+  const geleverd = bs.filter(b => b.draft);
+  $("kWerk").textContent = bs.length
+    ? bs.length + " opdracht" + (bs.length > 1 ? "en" : "") + " · " +
+      (geleverd.length ? geleverd.length + " met rapport" : "nog geen rapport")
+    : "Nog geen opdracht. Zet die op de desk.";
+  $("kaart").classList.add("open");
+}
+
+function hud(){
+  const werk = S.agents.filter(a => { const st = statusVanAgent(S, a.id); return st === "opgepakt" || st === "nieuw"; }).length;
+  const open = (S.desk.briefs || []).filter(b => b.status === "nieuw" || b.status === "opgepakt").length;
+  const jou  = (S.desk.decisions || []).filter(d => !d.resolved).length;
+  $("hud").innerHTML = `Agents <b class="busy">${werk}/${S.agents.length}</b>`
+    + `<span>Opdrachten <b>${open}</b></span>`
+    + `<span>Rapporten <b class="ok">${(S.drafts||[]).length}</b></span>`
+    + `<span>Aan jou <b class="${jou?"wait":""}">${jou}</b></span>`;
+}
+
+$("kamers").innerHTML = ZONES.map(z => `<button data-kamer="${z.name}">${z.label}</button>`).join("");
+$("kamers").onclick = e => { const b = e.target.closest("[data-kamer]"); if(b) vloer.office.focusZone(b.dataset.kamer); };
+
+async function lees(){
+  try {
+    const r = await fetch("/api/state");
+    S = await r.json();
+    if(!S.desk) S.desk = { briefs:[], decisions:[] };
+    vloer.sync(S);
+    hud();
+    if(sel) openKaart(sel);
+  } catch(e){ /* server even weg; de vloer blijft staan */ }
+}
+
+$("kX").onclick = () => { $("kaart").classList.remove("open"); sel = null; vloer.select(null); };
+$("bDemo").onclick = e => {
+  demo = !demo;
+  e.target.setAttribute("aria-pressed", demo ? "true" : "false");
+  document.body.classList.toggle("demo", demo);
+  $("label").innerHTML = demo
+    ? "<b>Rondloopmodus aan.</b> Wat de agents nu doen is verzonnen gedrag, geen meting."
+    : "<b>Weergave, geen meting.</b> Deze vloer toont wat er in desk.json en drafts/ staat.";
+  vloer.setDemo(demo);
+};
+$("bFit").onclick = () => { vloer.office.zelfGezoomd = false; vloer.office.fit(); };
+$("bFeed").onclick = () => $("feed").classList.toggle("open");
+$("bDicht").onclick = () => $("feed").classList.remove("open");
+document.querySelectorAll(".heen button").forEach(b => b.onclick = () => {
+  if(sel) vloer.office.send(sel, b.dataset.heen);
+});
+
+lees();
+setInterval(lees, 20000);
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(()=>{});
+</script>
+</body>
+</html>
