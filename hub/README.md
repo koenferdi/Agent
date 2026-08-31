@@ -62,5 +62,45 @@ Wil je de indeling veranderen, dan hoef je maar in één bestand te zijn:
 service worker, dus je kunt hem op je beginscherm zetten en hij start zonder
 browserbalk. De iconen maak je opnieuw met `npm run iconen`.
 
-De pagina start de agents niet. Die draaien in Claude Code. Dit is het werkblad
-en de leesomgeving.
+## Een agent aan het werk zetten
+
+Kies een agent, typ een concrete vraag, kies een model en druk op **Aan het werk
+zetten**. De hub bouwt de prompt uit `.claude/agents/<id>.md`, de bijbehorende
+capaciteit en `CLAUDE.md`, roept het model aan en duwt elke stap live je scherm
+in. Het rapport landt in `drafts/`, van elke run blijft een logboek achter in
+`runs/` met tokens en kosten.
+
+**Een agent hier draait zonder gereedschap.** Geen webtoegang, geen bestanden
+openen — hij werkt met wat er in zijn prompt staat, en het rapport zegt dat ook
+in het bronnenveld. Voor onderzoek met echte bronnen zet je dezelfde agent aan
+in Claude Code; daar heeft hij WebSearch en WebFetch.
+
+## Modellen en sleutels
+
+De modellenlijst wordt live opgehaald en tien minuten vastgehouden. Lukt dat
+niet, dan valt hij terug op een ingebakken lijst die ook zo gelabeld wordt.
+
+| Aanbieder | Sleutel nodig | Gratis |
+| --- | --- | --- |
+| Lokaal (Ollama, LM Studio) | nee | ja, en zonder limiet |
+| OpenRouter | ja | een handvol modellen |
+| Groq | ja | gratis niveau met limieten |
+| Google AI Studio | ja | gratis niveau met limieten |
+| Anthropic, OpenAI | ja | nee |
+
+Sleutels zet je in de hub bij **instellingen**. Ze belanden in `sleutels.json`
+naast je workspace, met rechten 600, buiten git, en gaan nooit terug naar de
+browser — je ziet alleen de laatste vier tekens. Je kunt ze ook via de omgeving
+meegeven (`OPENROUTER_API_KEY` en zo); dan staan ze nergens op schijf.
+
+Draait er iets lokaals op poort 11434, dan staat dat vanzelf bovenaan de lijst.
+Met `HUB_OPENROUTER_URL` en dergelijke wijs je een aanbieder naar je eigen
+gateway.
+
+## Opzetten
+
+Nog geen bedrijf? Open `/start.html`. In vier stappen vul je je naam en
+bedrijfsnaam in (met een naamgenerator), kies je welke agents je nodig hebt, en
+schrijft de hub die weg als bestanden. Bestaande agents blijven ongemoeid.
+
+Dit is het werkblad en de leesomgeving — en sinds kort ook de werkplaats.

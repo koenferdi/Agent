@@ -10,6 +10,9 @@ import { spawn } from "node:child_process";
 import { platform, networkInterfaces } from "node:os";
 import { randomBytes, timingSafeEqual, createHash } from "node:crypto";
 import { CATALOGUS, namen, maakAgents, bestaande } from "./agentfabriek.mjs";
+import { AANBIEDERS, overzicht as sleutelOverzicht, zet as zetSleutel } from "./sleutels.mjs";
+import { lijst as modellenLijst, standaard as standaardModel } from "./modellen.mjs";
+import { draai, runs as leesRuns } from "./runner.mjs";
 
 const NODE_MAJOR = Number(process.versions.node.split(".")[0]);
 if (NODE_MAJOR < 18) {
@@ -282,6 +285,54 @@ const server = createServer(async (req,res)=>{
       const [agents, drafts, desk, capabilities, bedrijf] = await Promise.all(
         [readAgents(), readDrafts(), readDesk(), readCapabilities(), readBedrijf()]);
       return send(res,200,JSON.stringify({ agents, drafts, desk, capabilities, bedrijf, root: ROOT }));
+    }
+
+    // ---------- modellen en sleutels ----------
+    if(url.pathname === "/api/modellen"){
+      const l = await modellenLijst(ROOT, url.searchParams.get("ververs") === "1");
+      return send(res,200,JSON.stringify({
+        modellen: l.modellen, bron: l.bron, problemen: l.problemen || [],
+        opgehaald: new Date(l.tijd).toISOString(),
+        standaard: standaardModel(l.modellen).id,
+        sleutels: await sleutelOverzicht(ROOT)
+      }));
+    }
+    if(url.pathname === "/api/sleutel" && req.method === "POST"){
+      let body=""; for await (const c of req){ body += c; if(body.length > 20_000) break; }
+      const g = JSON.parse(body || "{}");
+      if(!AANBIEDERS.some(a => a.id === g.aanbieder)) return send(res,400,'{"error":"onbekende aanbieder"}');
+      await zetSleutel(ROOT, g.aanbieder, g.sleutel || "");
+      await modellenLijst(ROOT, true);   // meteen opnieuw ophalen met de nieuwe sleutel
+      return send(res,200,JSON.stringify({ ok:true, sleutels: await sleutelOverzicht(ROOT) }));
+    }
+    if(url.pathname === "/api/runs"){
+      return send(res,200,JSON.stringify({ runs: await leesRuns(ROOT) }));
+    }
+
+    // ---------- een agent laten draaien ----------
+    if(url.pathname === "/api/run" && req.method === "POST"){
+      let body=""; for await (const c of req){ body += c; if(body.length > 100_000) break; }
+      const g = JSON.parse(body || "{}");
+      const agentId = String(g.agent || "").replace(/[^a-z0-9-]/gi,"");
+      const opdracht = String(g.opdracht || "").trim();
+      if(!agentId || !opdracht) return send(res,400,'{"error":"agent en opdracht zijn nodig"}');
+
+      res.writeHead(200, {
+        "content-type": "text/event-stream; charset=utf-8",
+        "cache-control": "no-store",
+        "connection": "keep-alive",
+        "x-accel-buffering": "no"       // caddy en nginx moeten niet bufferen
+      });
+      const stuur = (o) => { try { res.write("data: " + JSON.stringify(o) + "\n\n"); } catch {} };
+      const stop = new AbortController();
+      req.on("close", () => stop.abort());
+      try {
+        await draai({ root: ROOT, agentId, opdracht, modelId: g.model,
+                      stap: stuur, signal: stop.signal });
+      } catch (e){
+        stuur({ soort:"fout", tekst: String(e && e.message || e) });
+      }
+      return res.end();
     }
 
     // ---------- onboarding ----------

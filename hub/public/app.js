@@ -26,6 +26,8 @@ var saveTimer=null;
 var vloer = null;            // de IsoBridge
 var sterren = null;          // de sterrenkaart, pas gebouwd als je het tabblad opent
 var demoAan = false;
+var modellen = { modellen:[], standaard:null, bron:null, sleutels:[] };
+var run = null;              // { agentId, tekst, stappen[], bezig, stop }
 
 var DEPTS = [
   {id:"kennis",   label:"KENNIS"},
@@ -82,6 +84,147 @@ function setupVloer(){
   });
   window.__vloer = vloer.office;   /* haak voor de browsertest */
 }
+
+/* ---------- modellen ---------- */
+function laadModellen(ververs){
+  return fetch("/api/modellen" + (ververs ? "?ververs=1" : ""))
+    .then(function(r){return r.json();})
+    .then(function(d){ modellen = d; if(view==="map") renderPanel(); return d; })
+    .catch(function(){ /* de hub werkt ook zonder modellenlijst */ });
+}
+
+/* ---------- een agent laten draaien ---------- */
+function startRun(agentId, opdracht, modelId){
+  if(run && run.bezig) return;
+  run = { agentId:agentId, tekst:"", stappen:[], bezig:true, fout:null, klaar:null };
+  renderWerkbank();
+  if(vloer) vloer.office.setStatus(agentId, "opgepakt");
+  feedRegel({ tekst: meta(agentId).no + " " + meta(agentId).naam + " begint aan: " + opdracht.slice(0,60),
+              id: agentId, soort:"echt", tijd:new Date() });
+
+  var ctrl = new AbortController();
+  run.stop = function(){ ctrl.abort(); };
+
+  fetch("/api/run", { method:"POST", headers:{"content-type":"application/json"},
+    signal: ctrl.signal,
+    body: JSON.stringify({ agent:agentId, opdracht:opdracht, model:modelId }) })
+  .then(function(r){
+    var lezer = r.body.getReader(), dec = new TextDecoder(), rest = "";
+    function lees(){
+      return lezer.read().then(function(res){
+        if(res.done){ eindig(); return; }
+        rest += dec.decode(res.value, {stream:true});
+        var delen = rest.split("\n\n"); rest = delen.pop();
+        delen.forEach(function(blok){
+          var regel = blok.split("\n").filter(function(l){return l.indexOf("data:")===0;})[0];
+          if(!regel) return;
+          var g; try{ g = JSON.parse(regel.slice(5).trim()); }catch(e){ return; }
+          verwerk(g);
+        });
+        return lees();
+      });
+    }
+    return lees();
+  })
+  .catch(function(e){
+    if(e.name !== "AbortError") run.fout = String(e.message||e);
+    eindig();
+  });
+
+  function verwerk(g){
+    if(g.soort === "tekst"){ run.tekst += g.tekst; }
+    else if(g.soort === "stap"){ run.stappen.push(g.tekst); }
+    else if(g.soort === "fout"){ run.fout = g.tekst; }
+    else if(g.soort === "klaar"){ run.klaar = g; }
+    renderWerkbank(true);
+  }
+  function eindig(){
+    run.bezig = false;
+    if(run.klaar){
+      if(vloer){
+        vloer.office.setStatus(agentId, "geleverd");
+        vloer.office.floater("+1 rapport", agentId, THEME.ok);
+      }
+      feedRegel({ tekst: meta(agentId).naam + " leverde " + run.klaar.bestand
+        + " · " + (run.klaar.tokensIn + run.klaar.tokensUit) + " tokens"
+        + (run.klaar.kosten != null ? " · $" + run.klaar.kosten.toFixed(4) : ""),
+        id: agentId, soort:"echt", tijd:new Date() });
+      load();
+    } else if(run.fout){
+      if(vloer) vloer.office.setStatus(agentId, "idle");
+      feedRegel({ tekst: meta(agentId).naam + " liep vast: " + run.fout, id: agentId, soort:"echt", tijd:new Date() });
+    }
+    renderWerkbank();
+  }
+}
+
+function renderWerkbank(alleenLog){
+  var w = el("werklog"); if(!w) return;
+  var h = run.stappen.map(function(s){ return '<div class="stap">' + esc(s) + '</div>'; }).join("");
+  if(run.tekst) h += '<pre class="uitvoer">' + esc(run.tekst) + (run.bezig ? '<i class="cursor"></i>' : '') + '</pre>';
+  if(run.fout) h += '<div class="stap fout">' + esc(run.fout) + '</div>';
+  if(run.klaar) h += '<div class="stap ok">Klaar in ' + (run.klaar.duur/1000).toFixed(1) + ' s · '
+    + (run.klaar.tokensIn + run.klaar.tokensUit) + ' tokens'
+    + (run.klaar.kosten != null ? ' · $' + run.klaar.kosten.toFixed(4) : ' · kosten onbekend')
+    + ' · <a href="#" data-read="' + esc(run.klaar.bestand) + '">rapport lezen</a></div>';
+  w.innerHTML = h;
+  w.scrollTop = w.scrollHeight;
+  if(!alleenLog){
+    var knop = el("runStart");
+    if(knop){ knop.disabled = run.bezig; knop.textContent = run.bezig ? "Bezig…" : "Aan het werk zetten"; }
+    var stopKnop = el("runStop"); if(stopKnop) stopKnop.hidden = !run.bezig;
+  }
+}
+
+/* ---------- sleutels ---------- */
+function toonSleutels(){
+  var d = el("sleutelvenster");
+  if(!d){
+    d = document.createElement("div");
+    d.id = "sleutelvenster"; d.className = "reader";
+    document.body.appendChild(d);
+  }
+  var s = modellen.sleutels || [];
+  d.innerHTML = '<div class="reader-box"><div class="reader-head">'
+    + '<span class="mono">API-SLEUTELS</span>'
+    + '<button id="sluitSleutels">sluiten</button></div>'
+    + '<div class="reader-body"><p style="margin-top:0;font-size:13.5px;color:var(--ink-soft)">'
+    + 'Een sleutel blijft op deze machine, in <code>sleutels.json</code> naast je workspace. '
+    + 'Dat bestand staat buiten git en de hub stuurt hem nooit terug naar je browser — '
+    + 'je ziet alleen de laatste vier tekens terug.</p>'
+    + '<div class="stack">' + s.map(function(a){
+        return '<div class="card"><div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap">'
+          + '<b style="font-size:14.5px">' + esc(a.naam) + '</b>'
+          + (a.heeft ? '<span class="chip geleverd">ingesteld ' + esc(a.staart) + '</span>'
+                     : '<span class="chip idle">leeg</span>')
+          + (a.bron === "omgeving" ? '<span class="chip nieuw">uit de omgeving</span>' : '')
+          + '<a href="' + esc(a.aanmelden) + '" target="_blank" rel="noopener" '
+          + 'style="margin-left:auto;font-size:12px;color:var(--gold)">sleutel halen ↗</a></div>'
+          + '<p style="margin:6px 0 0;font-size:12.5px;color:var(--ink-soft)">' + esc(a.uitleg) + '</p>'
+          + '<div class="tools"><input type="password" data-sleutel="' + esc(a.id) + '" '
+          + 'placeholder="' + (a.heeft ? "vervangen of leegmaken" : "plak hier je sleutel") + '" '
+          + 'autocomplete="off" style="flex:1;min-width:160px">'
+          + '<button data-bewaar="' + esc(a.id) + '">Bewaren</button></div></div>';
+      }).join("") + '</div>'
+    + '<p class="note">Geen sleutel nodig: draai <code>ollama serve</code> op deze machine, '
+    + 'dan verschijnen je lokale modellen vanzelf in de lijst.</p></div></div>';
+  d.hidden = false;
+}
+document.addEventListener("click", function(e){
+  if(e.target.id === "sluitSleutels" || e.target.id === "sleutelvenster"){
+    var d = el("sleutelvenster"); if(d) d.hidden = true; return;
+  }
+  var b = e.target.closest("[data-bewaar]");
+  if(b){
+    var inp = document.querySelector('[data-sleutel="' + b.dataset.bewaar + '"]');
+    b.disabled = true; b.textContent = "…";
+    fetch("/api/sleutel", { method:"POST", headers:{"content-type":"application/json"},
+      body: JSON.stringify({ aanbieder: b.dataset.bewaar, sleutel: inp ? inp.value : "" }) })
+      .then(function(r){return r.json();})
+      .then(function(d){ modellen.sleutels = d.sleutels; return laadModellen(true); })
+      .then(function(){ toonSleutels(); });
+  }
+});
 
 /* ---------- sterrenkaart ---------- */
 function setupSterren(){
@@ -238,6 +381,35 @@ function briefCard(b){
   return h;
 }
 
+/* Het paneel waarin je een agent een opdracht geeft en meekijkt. */
+function werkbank(agentId){
+  var lijst = modellen.modellen || [];
+  var keuze = (run && run.agentId===agentId ? run.model : null) || modellen.standaard;
+  var opties = lijst.map(function(m){
+    return '<option value="'+esc(m.id)+'"'+(m.id===keuze?" selected":"")+'>'
+      + esc(m.naam) + ' · ' + esc(m.aanbieder) + (m.gratis?" · gratis":"") + '</option>';
+  }).join("");
+  var bezigHier = run && run.agentId === agentId;
+  var h = '<div class="werkbank"><div class="wkop">Aan het werk zetten</div>';
+  if(!lijst.length){
+    h += '<div class="empty"><b>Nog geen model beschikbaar.</b> Zet een sleutel bij '
+      + '<button class="quiet" id="openSleutels" style="padding:0;text-decoration:underline">instellingen</button>, '
+      + 'of draai iets lokaals (Ollama) op deze machine.</div>';
+  } else {
+    h += '<textarea id="runOpdracht" placeholder="Wat moet hij uitzoeken? Eén concrete vraag."'
+      + (bezigHier && run.bezig ? " disabled" : "") + '></textarea>'
+      + '<div class="wrij"><select id="runModel">' + opties + '</select>'
+      + '<button class="primary" id="runStart">Aan het werk zetten</button>'
+      + '<button class="quiet" id="runStop" hidden>Stoppen</button></div>'
+      + '<div class="wnoot">' + (modellen.bron === "ingebakken"
+          ? "De modellenlijst kon niet worden opgehaald; dit is de ingebakken lijst."
+          : "Lijst opgehaald bij de aanbieders. Gratis modellen hebben limieten.")
+        + ' Hij draait zonder webtoegang: geen bronnen, dus geen cijfers uit het niets.</div>';
+  }
+  h += '<div class="werklog" id="werklog"></div></div>';
+  return h;
+}
+
 function renderPanel(){
   var a=S.agents.filter(function(x){return x.id===sel;})[0];
   if(!a){el("panel").innerHTML="";return;}
@@ -257,6 +429,7 @@ function renderPanel(){
   } else {
     h+='<div class="stack">';bs.forEach(function(b){h+=briefCard(b);});h+='</div>';
   }
+  h+=werkbank(a.id);
   h+='<div class="stuur"><span class="lbl">Op de vloer</span>'
     +'<button data-stuur="desk">Bureau</button>'
     +'<button data-stuur="coffee">Koffie</button>'
@@ -275,6 +448,7 @@ function renderPanel(){
       +'<div class="full"><button class="primary" id="f-add">Toevoegen</button></div></div></div></details>';
   }
   el("panel").innerHTML=h+'</div></section>';
+  if(run && run.agentId === sel) renderWerkbank();
 }
 
 function renderSide(){
@@ -316,13 +490,14 @@ function renderSide(){
   h+='</div></section>';
 
   h+='<section class="panel"><h2>HOE DIT WERKT</h2><div class="body howto">'
-    +'<ol><li>Jij zet een <b>opdracht</b> bij een agent neer.</li>'
-    +'<li>Je zegt tegen Claude: <b>lees de validatiedesk</b>.</li>'
-    +'<li>Claude draait de agent en schrijft het rapport naar <code>drafts/</code>.</li>'
-    +'<li>De vloer leest elke twintig seconden opnieuw en beweegt mee.</li></ol>'
-    +'<p class="note">Deze pagina leest je echte bestanden, maar start de agents niet zelf. '
-    +'Die draaien in Claude Code. Een agent die naar de lounge loopt betekent dat er een rapport '
-    +'is opgeleverd, niet dat er iemand pauze houdt. De vloer is een weergave, geen meting.</p>'
+    +'<ol><li>Kies een agent en <b>zet hem aan het werk</b> met een concrete vraag.</li>'
+    +'<li>Je ziet zijn stappen binnenkomen terwijl hij bezig is.</li>'
+    +'<li>Het rapport landt in <code>drafts/</code> en verschijnt hiernaast.</li>'
+    +'<li>Op de vloer gaat hij zitten, werkt, en levert af.</li></ol>'
+    +'<p class="note">Een agent hier draait <b>zonder gereedschap</b>: geen webtoegang, geen '
+    +'bestanden openen. Hij werkt met wat in zijn prompt staat. Voor onderzoek met bronnen zet '
+    +'je hem aan in Claude Code — daar heeft hij wel WebSearch en WebFetch. Wat je hier ziet '
+    +'bewegen komt van echte runs en echte bestanden, niet van een simulatie.</p>'
     +'</div></section>';
   el("side").innerHTML=h;
 }
@@ -520,6 +695,14 @@ document.addEventListener("click",function(e){
     if(d){d.resolved=true;d.answer=v;save();renderAll();}
     return;
   }
+  if(e.target.id==="runStart"){
+    var opdracht = (el("runOpdracht")||{}).value || "";
+    if(!opdracht.trim()){ if(el("runOpdracht")) el("runOpdracht").focus(); return; }
+    startRun(sel, opdracht.trim(), (el("runModel")||{}).value);
+    return;
+  }
+  if(e.target.id==="runStop"){ if(run && run.stop) run.stop(); return; }
+  if(e.target.id==="openSleutels"){ toonSleutels(); return; }
   if(e.target.id==="bDemo"){
     demoAan=!demoAan;
     e.target.setAttribute("aria-pressed", demoAan?"true":"false");
@@ -545,5 +728,6 @@ setInterval(function(){
 
 setupVloer();
 load();
+laadModellen();
 setInterval(load, 20000);
 })();
