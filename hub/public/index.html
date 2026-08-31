@@ -34,9 +34,29 @@
   <div class="mapbox">
     <div class="tabs" id="tabs">
       <button data-view="map" aria-selected="true">VLOER</button>
+      <button data-view="ster" aria-selected="false">STERRENKAART</button>
       <button data-view="hier" aria-selected="false">HIERARCHIE</button>
     </div>
     <div class="hier" id="hier" hidden></div>
+
+    <div class="sterbox" id="sterbox" hidden>
+      <canvas id="sterren" aria-label="Sterrenkaart van de afdelingen"></canvas>
+      <div class="sterlegenda">
+        <span style="color:#E0703C"><i></i>gereedschap</span>
+        <span style="color:#6BA8F5"><i></i>agent</span>
+        <span style="color:#5FCE9B"><i></i>capaciteit</span>
+        <span style="color:#5A6982"><i style="border-style:dashed"></i>nog geen agent</span>
+      </div>
+      <div class="sterkaart" id="sterkaart">
+        <button class="x" id="sterkaartX" aria-label="Sluiten">&times;</button>
+        <h3 id="sTitel">—</h3><div class="soort" id="sSoort">—</div><div id="sLijf"></div>
+      </div>
+      <div class="sterpager">
+        <button id="sVorige" aria-label="Vorige afdeling">‹</button>
+        <span class="nu" id="sNu">Kennis</span>
+        <button id="sVolgende" aria-label="Volgende afdeling">›</button>
+      </div>
+    </div>
 
     <div class="vloerbox" id="vloerbox">
       <div class="stage" id="stage">

@@ -6,6 +6,7 @@
 import { IsoBridge, metaVan, statusVanAgent, STATUS_LABEL } from "./iso/iso-bridge.js";
 import { AGENT_COLOR, THEME } from "./iso/iso-theme.js";
 import { ZONES as KAMERS } from "./iso/iso-map.js";
+import { Sterrenkaart } from "./iso/sterrenkaart.js";
 
 (function(){
 "use strict";
@@ -23,6 +24,7 @@ var view = "map";            // "map" | "hier"
 var capSel = null;           // geselecteerde capaciteit in de hierarchie
 var saveTimer=null;
 var vloer = null;            // de IsoBridge
+var sterren = null;          // de sterrenkaart, pas gebouwd als je het tabblad opent
 var demoAan = false;
 
 var DEPTS = [
@@ -56,6 +58,7 @@ function load(){
     if(!S.agents.some(function(a){return a.id===sel;}) && S.agents.length) sel=S.agents[0].id;
     pill(S.agents.length+" agents · "+S.drafts.length+" rapporten","ok");
     if(vloer) vloer.sync(S);
+    if(sterren) sterren.setState(S);
     renderAll();
   }).catch(function(e){ pill("server niet bereikbaar","err"); console.error(e); });
 }
@@ -78,6 +81,53 @@ function setupVloer(){
     onFeed: function(regel){ feedRegel(regel); }
   });
   window.__vloer = vloer.office;   /* haak voor de browsertest */
+}
+
+/* ---------- sterrenkaart ---------- */
+function setupSterren(){
+  if(sterren) return;
+  sterren = new Sterrenkaart(el("sterren"), {
+    onSelect: function(k, cl){ sterKaart(k, cl); },
+    onWissel: function(cl){ el("sNu").textContent = cl.label; el("sterkaart").classList.remove("aan"); }
+  });
+  el("sVorige").onclick = function(){ sterren.volgende(-1); };
+  el("sVolgende").onclick = function(){ sterren.volgende(1); };
+  el("sterkaartX").onclick = function(){ el("sterkaart").classList.remove("aan"); sterren.gekozen=null; };
+}
+
+function sterKaart(k, cl){
+  var kaart=el("sterkaart");
+  if(!k){ kaart.classList.remove("aan"); return; }
+  var soort="", lijf="";
+  if(k.soort==="tool"){
+    soort="Gereedschap";
+    lijf="<p>Gebruikt door de agents van "+esc(cl.label.toLowerCase())+". Staat in het veld "
+      +"<code>runtime</code> van de capaciteit.</p>";
+  } else if(k.leeg){
+    soort="Lege plek";
+    lijf="<p>Hier hoort een agent te staan. De capaciteit is beschreven maar niemand voert hem uit — "
+      +"dat werk doe jij nu zelf.</p>";
+  } else if(k.soort==="agent"){
+    soort="Agent";
+    var mijn=cl.caps.filter(function(c){return c.agent===k.agent.id;});
+    lijf="<p>Model "+esc(k.agent.model)+" · "+k.agent.tools+" tools · "
+      +(k.agent.werk? k.agent.werk+" opdracht"+(k.agent.werk>1?"en":"") : "geen opdracht")+".</p>"
+      +"<p>Doet:</p><ul>"+mijn.map(function(c){return "<li>"+esc(c.titel)+"</li>";}).join("")+"</ul>";
+    sel=k.agent.id; renderPanel();
+  } else if(k.soort==="cap"){
+    soort="Capaciteit";
+    var c=k.cap;
+    lijf=(c.vervangt?"<p><b>Vervangt:</b> "+esc(c.vervangt)+"</p>":"")
+      +(c.mens?"<p><b>Jij doet:</b> "+esc(c.mens)+"</p>":"")
+      +(c.stappen.length?"<p><b>Stappen</b></p><ul>"+c.stappen.map(function(x){return "<li>"+esc(x)+"</li>";}).join("")+"</ul>":"");
+  } else {
+    soort="Afdeling";
+    lijf="<p>"+cl.agents.length+" agents, "+cl.caps.length+" capaciteiten, "+cl.tools.length+" stuks gereedschap.</p>";
+  }
+  el("sTitel").textContent=k.label;
+  el("sSoort").textContent=soort;
+  el("sLijf").innerHTML=lijf;
+  kaart.classList.add("aan");
 }
 
 /* ---------- live-feed ---------- */
@@ -366,12 +416,23 @@ function renderAll(){
   var vb=el("vloerbox");
   if(vb) vb.style.display = view==="map" ? "" : "none";
   if(hier){ hier.hidden = view!=="hier"; if(view==="hier") hier.innerHTML=renderHierarchy(); }
+  var sb=el("sterbox");
+  if(sb){
+    sb.hidden = view!=="ster";
+    if(view==="ster"){
+      setupSterren();
+      sterren.setState(S);
+      sterren._resize();
+      el("sNu").textContent = (sterren.huidige()||{}).label || "";
+    }
+  }
   var legend=document.querySelector(".legend");
   if(legend) legend.style.display = view==="map" ? "" : "none";
   var ms=el("mobstat");
   if(ms) ms.style.display = view==="map" ? "" : "none";
 
   if(view==="map"){ renderMobStat(); renderHud(); renderKamers(); renderTicker(); markeerSelectie(); renderPanel(); }
+  else if(view==="ster"){ renderPanel(); }
   else { el("panel").innerHTML = renderCapability(); }
   renderSide();
 }
