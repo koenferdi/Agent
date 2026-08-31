@@ -45,13 +45,27 @@ export const THEME = {
   dim:  "#6B7A99"         /* --ink-faint*/
 };
 
-/* Kleur per agent. Dezelfde kleuren als de oude pixelkaart gebruikte,
- * zodat 01 t/m 04 herkenbaar blijven. */
+/* Kleur per agent — één identiteit, overal dezelfde: op de vloer, in de
+ * sterrenkaart en in de grafieken.
+ *
+ * Deze vier zijn geen smaakkeuze. Ze zijn gecontroleerd tegen de donkere
+ * ondergrond (#0D1526) op lichtheid, verzadiging, onderling verschil bij
+ * kleurenblindheid en contrast. De vorige set zakte: te licht, en het grijs
+ * las als grijs. Wijzig je ze, draai dan de controle opnieuw. */
 export const AGENT_COLOR = {
-  "market-researcher":   "#4FD1C5",
-  "customer-researcher": "#F0A860",
-  "strategy-analyst":    "#A78BFA",
-  "content-creator":     "#6B7A99"
+  "market-researcher":   "#26A697",   /* teal   */
+  "customer-researcher": "#C9832F",   /* amber  */
+  "strategy-analyst":    "#8465DC",   /* paars  */
+  "content-creator":     "#CC5A86"    /* roze   */
+};
+
+/* Op de vloer staan de figuren in een donkere ruimte; daar mogen ze een
+ * stap lichter, anders verdwijnen ze in het meubilair. */
+export const AGENT_COLOR_VLOER = {
+  "market-researcher":   "#3FC5B4",
+  "customer-researcher": "#E5A04A",
+  "strategy-analyst":    "#9D82EE",
+  "content-creator":     "#E2749E"
 };
 
 /* Kleur van de statusstip boven een agent. */

@@ -20,7 +20,7 @@ function statusLabel(s){ return STATUS_LABEL[s] || s; }
 
 var S = { agents:[], drafts:[], desk:{briefs:[],decisions:[]}, capabilities:[] };
 var sel = "market-researcher";
-var view = "map";            // "map" | "hier"
+var view = "dash";           // dash | map | ster | hier | tools | werk
 var capSel = null;           // geselecteerde capaciteit in de hierarchie
 var saveTimer=null;
 var vloer = null;            // de IsoBridge
@@ -174,6 +174,213 @@ function renderWerkbank(alleenLog){
     if(knop){ knop.disabled = run.bezig; knop.textContent = run.bezig ? "Bezig…" : "Aan het werk zetten"; }
     var stopKnop = el("runStop"); if(stopKnop) stopKnop.hidden = !run.bezig;
   }
+}
+
+/* ---------- tekenwerk ----------
+ * Alles met de hand in SVG. Geen bibliotheek, en geen enkel cijfer dat niet
+ * uit je bestanden komt. Is er niets te tonen, dan staat dat er.
+ */
+var TICK = { as:"rgba(120,150,200,.22)", raster:"rgba(120,150,200,.13)" };
+
+function compact(n){
+  if(n == null) return "—";
+  if(n >= 1000000) return (n/1000000).toFixed(1).replace(".0","") + "M";
+  if(n >= 1000) return (n/1000).toFixed(1).replace(".0","") + "K";
+  return String(n);
+}
+function svgEl(inhoud, w, h, extra){
+  return '<svg viewBox="0 0 '+w+' '+h+'" width="100%" height="'+h+'" preserveAspectRatio="none" '
+    + (extra||"") + ' role="img">' + inhoud + '</svg>';
+}
+
+/* Sparkline: twaalf punten, laatste punt geaccentueerd. Eén reeks, dus
+ * geen legenda — de tegel eromheen zegt al wat het is. */
+function sparkline(waarden, kleur){
+  var w = 132, h = 34, p = 3;
+  if(!waarden.length || Math.max.apply(null, waarden) === 0)
+    return '<div class="spark-leeg">nog geen verloop</div>';
+  var max = Math.max.apply(null, waarden), n = waarden.length;
+  var x = function(i){ return p + i*(w-2*p)/Math.max(1,n-1); };
+  var y = function(v){ return h - p - (v/max)*(h-2*p); };
+  var pad = waarden.map(function(v,i){ return (i?"L":"M") + x(i).toFixed(1) + " " + y(v).toFixed(1); }).join(" ");
+  var vlak = pad + " L" + x(n-1).toFixed(1) + " " + (h-p) + " L" + x(0).toFixed(1) + " " + (h-p) + " Z";
+  return svgEl(
+      '<path d="'+vlak+'" fill="'+kleur+'" opacity=".1"/>'
+    + '<path d="'+pad+'" fill="none" stroke="'+kleur+'" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>'
+    + '<circle cx="'+x(n-1).toFixed(1)+'" cy="'+y(waarden[n-1]).toFixed(1)+'" r="4" fill="'+kleur+'" stroke="var(--paneel)" stroke-width="2"/>',
+    w, h, 'class="spark" preserveAspectRatio="none"');
+}
+
+/* Kolommen: één reeks, hoogte = aantal. Staafjes maximaal 24 breed met een
+ * afgeronde kop, 2px lucht ertussen, en een raster dat op de achtergrond blijft. */
+function kolommen(rijen, kleur){
+  if(!rijen.length) return '<div class="empty"><b>Nog niets gedraaid.</b> Zodra een agent werk doet verschijnt het hier.</div>';
+  var max = Math.max.apply(null, rijen.map(function(r){return r.n;}));
+  if(max === 0) max = 1;
+  var w = 720, h = 168, links = 34, onder = 26, boven = 10;
+  var vlakB = w - links - 8, vlakH = h - onder - boven;
+  var band = vlakB / rijen.length;
+  var breed = Math.min(24, band - 6);
+  var stappen = max <= 4 ? max : 4;
+  var lijnen = "", merken = "";
+  for(var i=0;i<=stappen;i++){
+    var v = Math.round(max*i/stappen), yy = boven + vlakH - (v/max)*vlakH;
+    lijnen += '<line x1="'+links+'" y1="'+yy.toFixed(1)+'" x2="'+(w-8)+'" y2="'+yy.toFixed(1)
+      + '" stroke="'+TICK.raster+'" stroke-width="1"/>'
+      + '<text x="'+(links-8)+'" y="'+(yy+3.5).toFixed(1)+'" text-anchor="end" class="asTekst">'+v+'</text>';
+  }
+  rijen.forEach(function(r, i){
+    var hoog = (r.n/max)*vlakH;
+    var x = links + i*band + (band-breed)/2;
+    var y = boven + vlakH - hoog;
+    if(r.n > 0){
+      merken += '<path d="M'+x.toFixed(1)+' '+(boven+vlakH)+' L'+x.toFixed(1)+' '+(y+4).toFixed(1)
+        + ' Q'+x.toFixed(1)+' '+y.toFixed(1)+' '+(x+4).toFixed(1)+' '+y.toFixed(1)
+        + ' L'+(x+breed-4).toFixed(1)+' '+y.toFixed(1)
+        + ' Q'+(x+breed).toFixed(1)+' '+y.toFixed(1)+' '+(x+breed).toFixed(1)+' '+(y+4).toFixed(1)
+        + ' L'+(x+breed).toFixed(1)+' '+(boven+vlakH)+' Z" fill="'+kleur+'"/>';
+    }
+    merken += '<rect x="'+(links+i*band).toFixed(1)+'" y="'+boven+'" width="'+band.toFixed(1)+'" height="'+vlakH
+      + '" fill="transparent" class="kolomvak" data-tip="'+esc(r.label+": "+r.n+(r.n===1?" run":" runs"))+'"/>';
+    if(i % Math.ceil(rijen.length/7) === 0 || i === rijen.length-1)
+      merken += '<text x="'+(links+i*band+band/2).toFixed(1)+'" y="'+(h-8)+'" text-anchor="middle" class="asTekst">'
+        + esc(r.kort) + '</text>';
+  });
+  return '<div class="grafiek">' + svgEl(
+      lijnen
+    + '<line x1="'+links+'" y1="'+(boven+vlakH)+'" x2="'+(w-8)+'" y2="'+(boven+vlakH)+'" stroke="'+TICK.as+'" stroke-width="1"/>'
+    + merken, w, h, 'preserveAspectRatio="xMidYMid meet" class="kolomgrafiek"') + '</div>';
+}
+
+/* Meter: gevuld deel is de stand, de baan eronder is dezelfde kleur, lichter. */
+function meter(deel, totaal, kleur){
+  var pct = totaal ? Math.round(deel/totaal*100) : 0;
+  return '<div class="meter-baan" style="--kleur:'+kleur+'"><i style="width:'+pct+'%"></i></div>';
+}
+
+/* ---------- overzicht ---------- */
+function dagenTerug(n){
+  var uit = [], nu = new Date();
+  for(var i=n-1;i>=0;i--){
+    var d = new Date(nu.getFullYear(), nu.getMonth(), nu.getDate()-i);
+    uit.push({ d:d, sleutel:d.toISOString().slice(0,10),
+      label:d.toLocaleDateString("nl-NL",{weekday:"long",day:"numeric",month:"long"}),
+      kort:d.getDate()+"/"+(d.getMonth()+1), n:0, tokens:0 });
+  }
+  return uit;
+}
+
+function renderDash(){
+  var doel = el("dashblad"); if(!doel) return;
+  var caps = S.capabilities || [];
+  var bemand = caps.filter(function(c){return c.done_by;}).length;
+  var open = S.desk.briefs.filter(function(b){return b.status==="nieuw"||b.status==="opgepakt";});
+  var beslis = S.desk.decisions.filter(function(d){return !d.resolved;});
+  var tokens = runlijst.reduce(function(n,r){return n + (r.tokensIn||0) + (r.tokensUit||0);},0);
+  var kosten = runlijst.reduce(function(n,r){return n + (r.kosten||0);},0);
+  var metKosten = runlijst.filter(function(r){return r.kosten!=null;}).length;
+  var mislukt = runlijst.filter(function(r){return r.fout;}).length;
+
+  var dagen = dagenTerug(14);
+  runlijst.forEach(function(r){
+    var k = String(r.begonnen||"").slice(0,10);
+    var d = dagen.filter(function(x){return x.sleutel===k;})[0];
+    if(d){ d.n++; d.tokens += (r.tokensIn||0)+(r.tokensUit||0); }
+  });
+
+  var h = '';
+
+  /* de kop: één groot getal, de stand van je bedrijf */
+  h += '<section class="held">'
+    + '<div class="held-cijfer"><b>' + bemand + '<span>/' + caps.length + '</span></b>'
+    + '<span class="held-label">capaciteiten bemand</span></div>'
+    + '<div class="held-meter">' + meter(bemand, caps.length, "var(--busy)")
+    + '<p>' + (caps.length - bemand) + ' staan er nog op papier. Dat werk doe jij nu zelf.</p></div>'
+    + '</section>';
+
+  /* tegels */
+  h += '<div class="tegels">'
+    + tegel("Agents", S.agents.length, S.agents.filter(function(a){return statusOf(a.id)==="opgepakt"||statusOf(a.id)==="nieuw";}).length + " met werk", null, null)
+    + tegel("Runs", runlijst.length, mislukt ? mislukt + " mislukt" : "alle geslaagd",
+        sparkline(dagen.map(function(d){return d.n;}), "#6BA8F5"), mislukt ? "wait" : null)
+    + tegel("Tokens", compact(tokens), runlijst.length ? "over " + runlijst.length + " runs" : "nog geen verbruik",
+        sparkline(dagen.map(function(d){return d.tokens;}), "#8465DC"), null)
+    + tegel("Kosten", metKosten ? "$" + kosten.toFixed(2) : "—",
+        metKosten ? metKosten + " van " + runlijst.length + " runs met prijs"
+                  : "geen prijs bekend voor deze modellen", null, null)
+    + '</div>';
+
+  /* activiteit */
+  h += '<section class="kaart-blok"><header><h3>Activiteit</h3>'
+    + '<span class="mono">runs per dag · laatste 14 dagen</span></header>'
+    + kolommen(dagen, "#6BA8F5") + '</section>';
+
+  /* twee kolommen: agents en afdelingen */
+  h += '<div class="duo">';
+
+  h += '<section class="kaart-blok"><header><h3>Agents</h3>'
+    + '<span class="mono">' + S.agents.length + ' in .claude/agents</span></header>'
+    + '<table class="tabel"><thead><tr><th>Agent</th><th>Status</th><th class="r">Runs</th>'
+    + '<th class="r">Tokens</th><th class="r">Laatst</th></tr></thead><tbody>';
+  S.agents.slice().sort(function(a,b){return meta(a.id).no.localeCompare(meta(b.id).no);}).forEach(function(a){
+    var mijn = runlijst.filter(function(r){return r.agentId===a.id;});
+    var tk = mijn.reduce(function(n,r){return n+(r.tokensIn||0)+(r.tokensUit||0);},0);
+    var st = statusOf(a.id);
+    var laatst = mijn.length ? new Date(mijn[0].begonnen).toLocaleDateString("nl-NL",{day:"numeric",month:"short"}) : "—";
+    h += '<tr data-pick="'+esc(a.id)+'">'
+      + '<td><span class="stip" style="background:'+kleurVan(a.id)+'"></span>' + esc(meta(a.id).naam) + '</td>'
+      + '<td><span class="chip '+(st==="offphase"?"idle":st)+'">'+esc(statusLabel(st))+'</span></td>'
+      + '<td class="r mono">' + (mijn.length || "—") + '</td>'
+      + '<td class="r mono">' + (tk ? compact(tk) : "—") + '</td>'
+      + '<td class="r mono">' + laatst + '</td></tr>';
+  });
+  h += '</tbody></table></section>';
+
+  h += '<section class="kaart-blok"><header><h3>Afdelingen</h3>'
+    + '<span class="mono">bemand van gedeclareerd</span></header><div class="afdlijst">';
+  ["kennis","aanbod","markt","financien","operatie"].forEach(function(dep){
+    var mijn = caps.filter(function(c){return c.department===dep;});
+    var live = mijn.filter(function(c){return c.done_by;}).length;
+    h += '<div class="afd"><div class="r1"><b>'+esc(dep)+'</b>'
+      + '<span class="mono">'+live+'/'+mijn.length+'</span></div>'
+      + meter(live, mijn.length, live ? "var(--ok)" : "var(--idle)") + '</div>';
+  });
+  h += '</div></section>';
+  h += '</div>';
+
+  /* wat op jou wacht */
+  h += '<section class="kaart-blok"><header><h3>Wacht op jou</h3>'
+    + '<span class="mono">' + (beslis.length + open.length) + ' punten</span></header>';
+  if(!beslis.length && !open.length){
+    h += '<div class="empty"><b>Niets openstaand.</b> Geen beslissing en geen opdracht die wacht.</div>';
+  } else {
+    h += '<div class="stack">';
+    beslis.forEach(function(d){
+      h += '<div class="card dec"><h3>'+esc(d.question)+'</h3>'
+        + '<p style="margin:7px 0 0;font-size:13px;color:var(--ink-soft)">'+esc(d.context)+'</p>'
+        + '<div class="tools"><input data-ans="'+d.id+'" placeholder="Jouw besluit" style="flex:1;min-width:160px">'
+        + '<button class="primary" data-resolve="'+d.id+'">Vastleggen</button></div></div>';
+    });
+    open.forEach(function(b){
+      h += '<div class="card"><div style="display:flex;gap:9px;align-items:baseline;flex-wrap:wrap">'
+        + '<span class="chip '+esc(b.status)+'">'+esc(b.status)+'</span>'
+        + '<b>'+esc(b.topic)+'</b><span class="mono" style="font-size:11px;color:var(--ink-faint);margin-left:auto">'
+        + esc(meta(b.agent).naam)+'</span></div></div>';
+    });
+    h += '</div>';
+  }
+  h += '</section>';
+
+  doel.innerHTML = h;
+}
+
+function tegel(label, waarde, onder, spark, toon){
+  return '<article class="tegel'+(toon?" "+toon:"")+'">'
+    + '<span class="t-label">'+esc(label)+'</span>'
+    + '<b class="t-waarde">'+esc(String(waarde))+'</b>'
+    + '<span class="t-onder">'+esc(onder)+'</span>'
+    + (spark ? '<div class="t-spark">'+spark+'</div>' : '')
+    + '</article>';
 }
 
 /* ---------- gereedschapsbibliotheek ---------- */
@@ -500,9 +707,11 @@ function werkbank(agentId){
   var lijst = modellen.modellen || [];
   var keuze = (run && run.agentId===agentId ? run.model : null) || modellen.standaard;
   var opties = lijst.map(function(m){
-    return '<option value="'+esc(m.id)+'"'+(m.id===keuze?" selected":"")+'>'
-      + esc(m.naam) + ' · ' + esc(m.aanbieder) + (m.gratis?" · gratis":"") + '</option>';
+    return '<option value="'+esc(m.id)+'"'+(m.id===keuze?" selected":"")+(m.bruikbaar===false?" disabled":"")+'>'
+      + esc(m.naam) + ' · ' + esc(m.aanbieder)
+      + (m.bruikbaar===false ? " · sleutel nodig" : (m.gratis?" · gratis":"")) + '</option>';
   }).join("");
+  var onbruikbaar = lijst.filter(function(m){return m.bruikbaar===false;}).length;
   var bezigHier = run && run.agentId === agentId;
   var h = '<div class="werkbank"><div class="wkop">Aan het werk zetten</div>';
   if(!lijst.length){
@@ -515,6 +724,9 @@ function werkbank(agentId){
       + '<div class="wrij"><select id="runModel">' + opties + '</select>'
       + '<button class="primary" id="runStart">Aan het werk zetten</button>'
       + '<button class="quiet" id="runStop" hidden>Stoppen</button></div>'
+      + (onbruikbaar ? '<div class="wnoot waarschuw">' + onbruikbaar
+          + ' modellen staan uit omdat er geen sleutel voor is. '
+          + '<button class="quiet" id="openSleutels" style="padding:0;text-decoration:underline">Sleutel toevoegen</button></div>' : '')
       + '<div class="wnoot">' + (modellen.bron === "ingebakken"
           ? "De modellenlijst kon niet worden opgehaald; dit is de ingebakken lijst."
           : "Lijst opgehaald bij de aanbieders. Gratis modellen hebben limieten.")
@@ -705,7 +917,9 @@ function renderAll(){
 
   renderBalk();
 
-  if(view === "map"){
+  if(view === "dash"){
+    renderDash(); renderPanel();
+  } else if(view === "map"){
     renderHud(); renderKamers(); renderTicker(); markeerSelectie(); renderPanel();
   } else if(view === "ster"){
     var sb = el("sterbox");

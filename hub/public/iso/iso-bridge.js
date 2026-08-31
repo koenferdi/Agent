@@ -10,7 +10,7 @@
  * Wat de motor zelf verzint (rondloopmodus) krijgt soort "demo".
  */
 import { IsoOffice } from "./iso-office.js";
-import { AGENT_COLOR, THEME } from "./iso-theme.js";
+import { AGENT_COLOR, AGENT_COLOR_VLOER, THEME } from "./iso-theme.js";
 import { DESKS, ZONES, AFDELINGEN, bureausVan } from "./iso-map.js";
 
 /* Wie zit waar. De nummers komen van de oude kaart, zodat 01 t/m 04 blijven kloppen. */
@@ -114,7 +114,7 @@ export class IsoBridge {
         role: a.id,
         dept: afdelingVan(state, a.id),
         desk: bureaus[a.id] || 0,
-        color: AGENT_COLOR[a.id] || THEME.busy,
+        color: AGENT_COLOR_VLOER[a.id] || AGENT_COLOR[a.id] || THEME.busy,
         status: statusVanAgent(state, a.id)
       };
     });

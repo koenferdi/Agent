@@ -136,12 +136,23 @@ export async function lijst(root, forceer = false){
   return cache;
 }
 
-/* Welk model gebruiken we als je niets kiest? Het beste gratis model dat we
- * kunnen bereiken; anders het eerste uit de ingebakken lijst. */
-export function standaard(modellen){
-  return (modellen.find(m => m.aanbieder === "lokaal")
-      || modellen.find(m => m.gratis && m.aanbieder === "groq")
-      || modellen.find(m => m.gratis)
+/* Welke aanbieders kun je nu echt gebruiken? Lokaal heeft nooit een sleutel
+ * nodig; de rest wel. */
+export async function bruikbareAanbieders(root){
+  const uit = new Set(["lokaal"]);
+  for (const a of ["openrouter","groq","google","anthropic","openai"])
+    if (await sleutelVan(root, a)) uit.add(a);
+  return uit;
+}
+
+/* Welk model gebruiken we als je niets kiest? Het beste model dat je ook
+ * echt kunt aanroepen. Een standaard waar je geen sleutel voor hebt is geen
+ * standaard maar een foutmelding die staat te wachten. */
+export function standaard(modellen, bruikbaar){
+  const kan = m => !bruikbaar || bruikbaar.has(m.aanbieder);
+  return (modellen.find(m => m.aanbieder === "lokaal" && kan(m))
+      || modellen.find(m => m.gratis && kan(m))
+      || modellen.find(kan)
       || modellen[0] || INGEBAKKEN[0]);
 }
 

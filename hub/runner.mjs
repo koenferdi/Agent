@@ -12,7 +12,7 @@
 import { readFile, writeFile, mkdir, readdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { praat, lijst, standaard } from "./modellen.mjs";
+import { praat, lijst, standaard, bruikbareAanbieders } from "./modellen.mjs";
 import { GEREEDSCHAP, status as gereedschapStatus, voerUit, alsOpenAI, alsAnthropic } from "./gereedschap.mjs";
 
 const MAX_TOKENS = 4000;
@@ -95,7 +95,8 @@ export async function draai({ root, agentId, opdracht, modelId, stap, signal }){
   meld("stap", { tekst: "Opdracht ontvangen." });
 
   const { modellen, bron } = await lijst(root);
-  const model = modellen.find(m => m.id === modelId) || standaard(modellen);
+  const bruikbaar = await bruikbareAanbieders(root);
+  const model = modellen.find(m => m.id === modelId) || standaard(modellen, bruikbaar);
   meld("stap", { tekst: "Model gekozen: " + model.naam + " via " + model.aanbieder
     + (model.gratis ? " (gratis niveau)" : "")
     + (bron === "ingebakken" ? " — uit de ingebakken lijst, niet geverifieerd" : "") });

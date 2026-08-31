@@ -419,3 +419,83 @@ details.adder .body{padding:14px}
 @media (max-width:640px){
   #balk .meters{display:none}   /* op een telefoon staan de tellers al op de vloer */
 }
+
+/* ================= overzicht ================= */
+.blad-in.breed{max-width:1180px}
+
+/* het ene grote getal waar het dashboard mee opent */
+.held{display:flex;gap:28px;align-items:center;flex-wrap:wrap;
+  background:linear-gradient(150deg,var(--paneel) 0%,var(--paneel-2) 100%);
+  border:1px solid var(--lijn);border-radius:6px;padding:20px 22px;margin-bottom:14px;position:relative;overflow:hidden}
+.held::before{content:"";position:absolute;left:0;right:0;top:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(107,168,245,.55),transparent)}
+.held-cijfer b{display:block;font-size:52px;font-weight:600;line-height:1;letter-spacing:-.02em;
+  font-variant-numeric:tabular-nums}
+.held-cijfer b span{font-size:26px;color:var(--ink-faint);font-weight:400}
+.held-label{display:block;margin-top:7px;font-family:"IBM Plex Mono",monospace;font-size:10.5px;
+  letter-spacing:.11em;text-transform:uppercase;color:var(--ink-faint)}
+.held-meter{flex:1;min-width:220px}
+.held-meter p{margin:10px 0 0;font-size:13px;color:var(--ink-soft)}
+
+.meter-baan{height:7px;border-radius:99px;background:color-mix(in srgb,var(--kleur) 18%,transparent);overflow:hidden}
+.meter-baan i{display:block;height:100%;border-radius:99px;background:var(--kleur)}
+
+/* tegels */
+.tegels{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:14px}
+.tegel{background:var(--paneel);border:1px solid var(--lijn);border-radius:6px;padding:14px 15px 12px;
+  display:flex;flex-direction:column;gap:2px;position:relative;overflow:hidden}
+.tegel::before{content:"";position:absolute;left:0;right:0;top:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(120,150,200,.28),transparent)}
+.t-label{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.11em;text-transform:uppercase;
+  color:var(--ink-faint)}
+.t-waarde{font-size:30px;font-weight:600;line-height:1.15;letter-spacing:-.015em;font-variant-numeric:tabular-nums}
+.t-onder{font-size:12px;color:var(--ink-soft)}
+.tegel.wait .t-onder{color:var(--wait)}
+.t-spark{margin-top:9px;height:34px}
+.spark-leeg{height:34px;display:flex;align-items:center;font-family:"IBM Plex Mono",monospace;
+  font-size:10.5px;color:var(--ink-faint)}
+
+/* blokken */
+.kaart-blok{background:var(--paneel);border:1px solid var(--lijn);border-radius:6px;margin-bottom:14px;overflow:hidden}
+.kaart-blok>header{display:flex;align-items:baseline;gap:12px;padding:13px 16px;border-bottom:1px solid var(--lijn);
+  background:var(--nacht-2)}
+.kaart-blok>header h3{margin:0;font-size:14px;font-weight:600}
+.kaart-blok>header .mono{margin-left:auto;font-size:10.5px;color:var(--ink-faint);letter-spacing:.05em}
+.kaart-blok .empty{margin:16px}
+.kaart-blok .stack{padding:14px}
+.duo{display:grid;grid-template-columns:1fr;gap:14px}
+@media (min-width:1000px){.duo{grid-template-columns:minmax(0,1.35fr) minmax(0,1fr)}}
+
+/* grafiek */
+.grafiek{padding:14px 12px 6px}
+.kolomgrafiek{display:block;max-width:100%;height:auto}
+.asTekst{font-family:"IBM Plex Mono",monospace;font-size:10px;fill:var(--ink-faint)}
+.kolomvak{cursor:default}
+.kolomvak:hover{fill:rgba(107,168,245,.07)}
+
+/* tabel */
+.tabel{width:100%;border-collapse:collapse;font-size:13px}
+.tabel th{text-align:left;font-family:"IBM Plex Mono",monospace;font-size:9.5px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--ink-faint);font-weight:400;padding:10px 14px;border-bottom:1px solid var(--lijn)}
+.tabel td{padding:10px 14px;border-bottom:1px solid rgba(27,39,64,.75)}
+.tabel tr:last-child td{border-bottom:0}
+.tabel tbody tr{cursor:pointer}
+.tabel tbody tr:hover{background:var(--paneel-2)}
+.tabel .r{text-align:right}
+.tabel .mono{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums;color:var(--ink-soft)}
+.tabel .stip{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:9px;vertical-align:1px}
+
+/* afdelingen */
+.afdlijst{padding:14px 16px;display:flex;flex-direction:column;gap:13px}
+.afd .r1{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+.afd .r1 b{font-size:13px;font-weight:500;text-transform:capitalize}
+.afd .r1 .mono{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--ink-faint);
+  font-variant-numeric:tabular-nums}
+
+@media (max-width:640px){
+  .held-cijfer b{font-size:42px}
+  .tegels{grid-template-columns:1fr 1fr}
+  .tabel th:nth-child(4),.tabel td:nth-child(4){display:none}
+}
+.wnoot.waarschuw{color:var(--wait)}
+.wnoot.waarschuw button{color:var(--wait)}

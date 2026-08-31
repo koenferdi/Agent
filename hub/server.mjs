@@ -11,7 +11,7 @@ import { platform, networkInterfaces } from "node:os";
 import { randomBytes, timingSafeEqual, createHash } from "node:crypto";
 import { CATALOGUS, namen, maakAgents, bestaande } from "./agentfabriek.mjs";
 import { AANBIEDERS, overzicht as sleutelOverzicht, zet as zetSleutel } from "./sleutels.mjs";
-import { lijst as modellenLijst, standaard as standaardModel } from "./modellen.mjs";
+import { lijst as modellenLijst, standaard as standaardModel, bruikbareAanbieders } from "./modellen.mjs";
 import { draai, runs as leesRuns } from "./runner.mjs";
 import { status as gereedschapStatus } from "./gereedschap.mjs";
 
@@ -291,10 +291,12 @@ const server = createServer(async (req,res)=>{
     // ---------- modellen en sleutels ----------
     if(url.pathname === "/api/modellen"){
       const l = await modellenLijst(ROOT, url.searchParams.get("ververs") === "1");
+      const bruikbaar = await bruikbareAanbieders(ROOT);
       return send(res,200,JSON.stringify({
-        modellen: l.modellen, bron: l.bron, problemen: l.problemen || [],
+        modellen: l.modellen.map(m => ({ ...m, bruikbaar: bruikbaar.has(m.aanbieder) })),
+        bron: l.bron, problemen: l.problemen || [],
         opgehaald: new Date(l.tijd).toISOString(),
-        standaard: standaardModel(l.modellen).id,
+        standaard: standaardModel(l.modellen, bruikbaar).id,
         sleutels: await sleutelOverzicht(ROOT)
       }));
     }
