@@ -62,6 +62,28 @@ Wil je de indeling veranderen, dan hoef je maar in één bestand te zijn:
 service worker, dus je kunt hem op je beginscherm zetten en hij start zonder
 browserbalk. De iconen maak je opnieuw met `npm run iconen`.
 
+## De indeling
+
+Links de onderdelen, in het midden het werkblad, rechts de inspecteur die
+meekijkt. Vijf werkbladen: de **vloer**, de **sterrenkaart**, de **structuur**,
+de **gereedschapsbibliotheek** en **werk** (runs, beslissingen, rapporten). Op
+een telefoon wordt de navigatie een balk onderin en de inspecteur een lade.
+
+## Gereedschap
+
+Een agent kan tijdens een run zoeken op het web, een pagina ophalen, en in deze
+workspace lezen en kijken. Alles alleen-lezen: schrijven doet hij niet zelf, het
+rapport wordt aan het eind door de hub weggeschreven. In de bibliotheek zie je
+per stuk gereedschap of het bruikbaar is, wat het nodig heeft en welke agents
+het krijgen aangeboden.
+
+Zoeken heeft een zoekmachine nodig. Twee wegen: zet `SEARX_URL` naar een eigen
+SearXNG (gratis, zelf te draaien) of vul een Brave-sleutel in bij de sleutels.
+Zonder een van beide zoekt niemand, en dat staat er ook zo bij.
+
+Een agent mag maximaal zes rondes gereedschap pakken per run. Elke keer dat hij
+iets pakt zie je het in de live-uitvoer staan.
+
 ## Een agent aan het werk zetten
 
 Kies een agent, typ een concrete vraag, kies een model en druk op **Aan het werk

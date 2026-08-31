@@ -13,6 +13,7 @@ import { CATALOGUS, namen, maakAgents, bestaande } from "./agentfabriek.mjs";
 import { AANBIEDERS, overzicht as sleutelOverzicht, zet as zetSleutel } from "./sleutels.mjs";
 import { lijst as modellenLijst, standaard as standaardModel } from "./modellen.mjs";
 import { draai, runs as leesRuns } from "./runner.mjs";
+import { status as gereedschapStatus } from "./gereedschap.mjs";
 
 const NODE_MAJOR = Number(process.versions.node.split(".")[0]);
 if (NODE_MAJOR < 18) {
@@ -304,6 +305,9 @@ const server = createServer(async (req,res)=>{
       await zetSleutel(ROOT, g.aanbieder, g.sleutel || "");
       await modellenLijst(ROOT, true);   // meteen opnieuw ophalen met de nieuwe sleutel
       return send(res,200,JSON.stringify({ ok:true, sleutels: await sleutelOverzicht(ROOT) }));
+    }
+    if(url.pathname === "/api/gereedschap"){
+      return send(res,200,JSON.stringify({ gereedschap: await gereedschapStatus(ROOT) }));
     }
     if(url.pathname === "/api/runs"){
       return send(res,200,JSON.stringify({ runs: await leesRuns(ROOT) }));

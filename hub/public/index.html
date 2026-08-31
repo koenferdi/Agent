@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Validatiedesk</title>
-<meta name="theme-color" content="#0B1220">
+<meta name="theme-color" content="#070C16">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -14,90 +14,109 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%230B1220'/%3E%3Cpath d='M3 11h10v2H3zM5 6h6v5H5zM7 3h2v3H7z' fill='%23F5C542'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23070C16'/%3E%3Cpath d='M3 11h10v2H3zM5 6h6v5H5zM7 3h2v3H7z' fill='%23F5C542'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-<div class="wrap">
-  <header class="hdr">
-    <div>
-      <h1 class="pix">VALIDATIEDESK</h1>
-      <p class="sub">Lokale werkomgeving. Leest de echte bestanden uit deze workspace:
-        de agents in <code>.claude/agents</code> en de rapporten in <code>drafts/</code>.</p>
-    </div>
-    <div class="hdr-right">
-      <span class="pill" id="conn">verbinden…</span>
-      <button id="refresh" title="Opnieuw inlezen">↻ Ververs</button>
-    </div>
-  </header>
+<div id="app">
 
-  <div class="mapbox">
-    <div class="tabs" id="tabs">
-      <button data-view="map" aria-selected="true">VLOER</button>
-      <button data-view="ster" aria-selected="false">STERRENKAART</button>
-      <button data-view="hier" aria-selected="false">HIERARCHIE</button>
-    </div>
-    <div class="hier" id="hier" hidden></div>
+  <!-- navigatie -->
+  <nav id="rail" aria-label="Onderdelen">
+    <div class="merk" title="Validatiedesk"><span>VD</span></div>
+    <button data-view="map"   aria-current="true"><i>▦</i><span>Vloer</span></button>
+    <button data-view="ster"  aria-current="false"><i>✦</i><span>Sterren</span></button>
+    <button data-view="hier"  aria-current="false"><i>⌬</i><span>Structuur</span></button>
+    <button data-view="tools" aria-current="false"><i>⚙</i><span>Gereedschap</span></button>
+    <button data-view="werk"  aria-current="false"><i>▤</i><span>Werk</span></button>
+    <div class="rek"></div>
+    <button id="railSleutels" class="onder"><i>⚿</i><span>Sleutels</span></button>
+    <a class="onder" href="/start.html"><i>+</i><span>Opzetten</span></a>
+  </nav>
 
-    <div class="sterbox" id="sterbox" hidden>
-      <canvas id="sterren" aria-label="Sterrenkaart van de afdelingen"></canvas>
-      <div class="sterlegenda">
-        <span style="color:#E0703C"><i></i>gereedschap</span>
-        <span style="color:#6BA8F5"><i></i>agent</span>
-        <span style="color:#5FCE9B"><i></i>capaciteit</span>
-        <span style="color:#5A6982"><i style="border-style:dashed"></i>nog geen agent</span>
+  <!-- werkblad -->
+  <main id="blad">
+    <header id="balk">
+      <div class="titel">
+        <b id="bedrijfNaam">Validatiedesk</b>
+        <span id="bedrijfWat">lokale werkomgeving</span>
       </div>
-      <div class="sterkaart" id="sterkaart">
-        <button class="x" id="sterkaartX" aria-label="Sluiten">&times;</button>
-        <h3 id="sTitel">—</h3><div class="soort" id="sSoort">—</div><div id="sLijf"></div>
+      <div class="meters" id="meters"></div>
+      <div class="acties">
+        <span class="pill" id="conn">verbinden…</span>
+        <button id="refresh" title="Opnieuw inlezen">↻</button>
+        <button id="toonInspecteur" class="alleenSmal">Paneel</button>
       </div>
-      <div class="sterpager">
-        <button id="sVorige" aria-label="Vorige afdeling">‹</button>
-        <span class="nu" id="sNu">Kennis</span>
-        <button id="sVolgende" aria-label="Volgende afdeling">›</button>
-      </div>
-    </div>
+    </header>
 
-    <div class="vloerbox" id="vloerbox">
-      <div class="stage" id="stage">
-        <canvas id="vloer" aria-label="Isometrische plattegrond van het kantoor"></canvas>
-        <div class="hud" id="hud"></div>
-        <div class="kamers" id="kamers"></div>
-        <div class="vloerknoppen">
-          <button id="bDemo" aria-pressed="false" title="Laat de agents uit zichzelf rondlopen. Verzonnen gedrag.">Rondloopmodus</button>
-          <button id="bFit" title="Hele vloer in beeld">Passend</button>
-          <a class="knopje" href="/vloer.html" title="Alleen de vloer, volledig scherm">Vol scherm</a>
+    <div id="doek">
+      <!-- de vloer -->
+      <section class="zicht aan" data-zicht="map">
+        <div class="stage" id="stage">
+          <canvas id="vloer" aria-label="Isometrische plattegrond van het kantoor"></canvas>
+          <div class="hud" id="hud"></div>
+          <div class="kamers" id="kamers"></div>
+          <div class="vloerknoppen">
+            <button id="bDemo" aria-pressed="false" title="Laat de agents uit zichzelf rondlopen. Verzonnen gedrag.">Rondloop</button>
+            <button id="bFit" title="Hele vloer in beeld">Passend</button>
+            <a class="knopje" href="/vloer.html" title="Alleen de vloer, volledig scherm">Vol scherm</a>
+          </div>
+          <div class="ticker" id="ticker" aria-hidden="true"></div>
+          <p class="vloerlabel" id="vloerlabel">
+            <b>Weergave, geen meting.</b> Deze vloer toont wat er in
+            <code>desk.json</code> en <code>drafts/</code> staat.
+          </p>
         </div>
-        <div class="ticker" id="ticker" aria-hidden="true"></div>
-        <p class="vloerlabel" id="vloerlabel">
-          <b>Weergave, geen meting.</b> Deze vloer toont wat er in
-          <code>desk.json</code> en <code>drafts/</code> staat. Beweegt er iemand, dan is daar iets veranderd.
-        </p>
-      </div>
+      </section>
 
-      <aside class="feed">
-        <h2>LIVE</h2>
+      <!-- sterrenkaart -->
+      <section class="zicht" data-zicht="ster">
+        <div class="sterbox" id="sterbox">
+          <canvas id="sterren" aria-label="Sterrenkaart van de afdelingen"></canvas>
+          <div class="sterlegenda">
+            <span style="color:#E0703C"><i></i>gereedschap</span>
+            <span style="color:#6BA8F5"><i></i>agent</span>
+            <span style="color:#5FCE9B"><i></i>capaciteit</span>
+            <span style="color:#5A6982"><i style="border-style:dashed"></i>nog geen agent</span>
+          </div>
+          <div class="sterkaart" id="sterkaart">
+            <button class="x" id="sterkaartX" aria-label="Sluiten">&times;</button>
+            <h3 id="sTitel">—</h3><div class="soort" id="sSoort">—</div><div id="sLijf"></div>
+          </div>
+          <div class="sterpager">
+            <button id="sVorige" aria-label="Vorige afdeling">‹</button>
+            <span class="nu" id="sNu">Kennis</span>
+            <button id="sVolgende" aria-label="Volgende afdeling">›</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- structuur -->
+      <section class="zicht" data-zicht="hier"><div class="hier" id="hier"></div></section>
+
+      <!-- gereedschapsbibliotheek -->
+      <section class="zicht" data-zicht="tools"><div class="blad-in" id="toolblad"></div></section>
+
+      <!-- werk: runs, beslissingen, rapporten -->
+      <section class="zicht" data-zicht="werk"><div class="blad-in" id="werkblad"></div></section>
+    </div>
+  </main>
+
+  <!-- inspecteur -->
+  <aside id="inspecteur">
+    <div class="insp-kop">
+      <button class="tab aan" data-insp="agent">Agent</button>
+      <button class="tab" data-insp="live">Live</button>
+      <button class="sluit alleenSmal" id="sluitInspecteur" aria-label="Sluiten">×</button>
+    </div>
+    <div class="insp-lijf">
+      <div class="insp-pane aan" data-pane="agent"><div id="panel"></div></div>
+      <div class="insp-pane" data-pane="live">
         <div id="feedlijst"></div>
-        <p class="feednote">Elke regel is een verandering in een bestand, gezien bij het inlezen.
-          De tijd erbij is het moment dat de hub het zag — niet per se het moment dat het gebeurde.</p>
-      </aside>
+        <p class="feednote">Elke regel is een verandering in een bestand of een stap uit een run,
+          gezien op het moment dat de hub het zag.</p>
+      </div>
     </div>
-
-    <div class="mobstat" id="mobstat"></div>
-    <div class="legend">
-      <span><i class="d idle"></i>idle</span>
-      <span><i class="d nieuw"></i>wacht op Claude</span>
-      <span><i class="d opgepakt"></i>Claude is bezig</span>
-      <span><i class="d geleverd"></i>rapport klaar</span>
-      <span class="spacer"></span>
-      <span id="clock" class="mono"></span>
-    </div>
-  </div>
-
-  <div class="cols">
-    <main id="panel"></main>
-    <aside id="side"></aside>
-  </div>
+  </aside>
 </div>
 
 <div class="reader" id="reader" hidden>
@@ -109,6 +128,8 @@
     <div class="reader-body" id="reader-body"></div>
   </div>
 </div>
+
+<div id="side" hidden></div>
 
 <script type="module" src="/app.js"></script>
 <script>

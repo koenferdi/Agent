@@ -23,6 +23,9 @@ export const AANBIEDERS = [
   { id:"anthropic", naam:"Anthropic", env:"ANTHROPIC_API_KEY",
     aanmelden:"https://console.anthropic.com/settings/keys",
     uitleg:"Claude. Geen gratis niveau, wel de beste kwaliteit voor dit werk." },
+  { id:"brave", naam:"Brave Search", env:"BRAVE_API_KEY",
+    aanmelden:"https://brave.com/search/api/",
+    uitleg:"Zoeken op het web voor je agents. Gratis niveau van 2000 zoekopdrachten per maand." },
   { id:"openai", naam:"OpenAI", env:"OPENAI_API_KEY",
     aanmelden:"https://platform.openai.com/api-keys",
     uitleg:"GPT. Geen gratis niveau." }

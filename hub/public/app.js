@@ -79,7 +79,7 @@ function save(){
 /* ---------- de vloer ---------- */
 function setupVloer(){
   vloer = new IsoBridge(el("vloer"), {
-    onSelect: function(id){ sel = id; markeerSelectie(); renderPanel(); },
+    onSelect: function(id){ sel = id; markeerSelectie(); renderPanel(); toonInspecteur("agent"); },
     onFeed: function(regel){ feedRegel(regel); }
   });
   window.__vloer = vloer.office;   /* haak voor de browsertest */
@@ -149,7 +149,7 @@ function startRun(agentId, opdracht, modelId){
         + " · " + (run.klaar.tokensIn + run.klaar.tokensUit) + " tokens"
         + (run.klaar.kosten != null ? " · $" + run.klaar.kosten.toFixed(4) : ""),
         id: agentId, soort:"echt", tijd:new Date() });
-      load();
+      load(); laadRuns();
     } else if(run.fout){
       if(vloer) vloer.office.setStatus(agentId, "idle");
       feedRegel({ tekst: meta(agentId).naam + " liep vast: " + run.fout, id: agentId, soort:"echt", tijd:new Date() });
@@ -174,6 +174,102 @@ function renderWerkbank(alleenLog){
     if(knop){ knop.disabled = run.bezig; knop.textContent = run.bezig ? "Bezig…" : "Aan het werk zetten"; }
     var stopKnop = el("runStop"); if(stopKnop) stopKnop.hidden = !run.bezig;
   }
+}
+
+/* ---------- gereedschapsbibliotheek ---------- */
+var gereedschap = [];
+function laadGereedschap(){
+  return fetch("/api/gereedschap").then(function(r){return r.json();})
+    .then(function(d){ gereedschap = d.gereedschap || []; if(view==="tools") renderTools(); })
+    .catch(function(){});
+}
+
+/* Welk gereedschap past bij deze agent? Uit zijn eigen tools-regel. */
+function suggestieVoor(agentId){
+  var a = S.agents.filter(function(x){return x.id===agentId;})[0];
+  if(!a) return [];
+  var heeft = (a.tools||[]).join(" ").toLowerCase();
+  var uit = ["lees_bestand","lijst_bestanden"];
+  if(heeft.indexOf("websearch")>=0) uit.push("web_zoek");
+  if(heeft.indexOf("webfetch")>=0) uit.push("web_haal");
+  return uit;
+}
+
+function renderTools(){
+  var doel = el("toolblad"); if(!doel) return;
+  var klaar = gereedschap.filter(function(g){return g.klaar;}).length;
+  var h = '<h2 class="blad-kop">Gereedschap</h2>'
+    + '<p class="blad-uit">Wat een agent tijdens een run mag doen. Alles hier is alleen-lezen: '
+    + 'hij kan zoeken, lezen en kijken, maar niet zelf schrijven. Het rapport wordt aan het eind '
+    + 'door de hub weggeschreven, zodat er nooit iets ongemerkt verandert. '
+    + '<b>' + klaar + ' van de ' + gereedschap.length + '</b> zijn nu bruikbaar.</p>'
+    + '<div class="biblio">';
+  gereedschap.forEach(function(g){
+    var gebruikers = S.agents.filter(function(a){ return suggestieVoor(a.id).indexOf(g.id)>=0; });
+    h += '<article class="gkaart' + (g.klaar?"":" uit") + '">'
+      + '<div class="kop"><div class="ic">' + esc(g.icoon||"·") + '</div>'
+      + '<h3>' + esc(g.naam) + '</h3>'
+      + '<span class="status ' + (g.klaar?"aan":"uit") + '">' + (g.klaar?"klaar":"uit") + '</span></div>'
+      + '<p>' + esc(g.kort) + '</p>'
+      + '<p class="waarom">' + esc(g.waarom) + '</p>'
+      + '<div class="voet">' + (g.klaar
+          ? '<b>Via</b> ' + esc(g.via)
+          : '<b>Nodig</b> ' + esc(g.reden || g.nodig)) + '</div>';
+    if(gebruikers.length){
+      h += '<div class="gebruikers">' + gebruikers.map(function(a){
+        return '<span>' + esc(meta(a.id).naam) + '</span>'; }).join("") + '</div>';
+    }
+    h += '</article>';
+  });
+  h += '</div>';
+
+  h += '<div class="blad-sectie">Wie mag wat</div><div class="stack">';
+  S.agents.forEach(function(a){
+    var s2 = suggestieVoor(a.id);
+    h += '<div class="card"><div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap">'
+      + '<b>' + esc(meta(a.id).no + " " + meta(a.id).naam) + '</b>'
+      + '<span class="mono" style="font-size:11px;color:var(--ink-faint)">' + esc(a.id) + '</span></div>'
+      + '<div class="gebruikers">' + s2.map(function(id){
+          var g = gereedschap.filter(function(x){return x.id===id;})[0];
+          return '<span style="' + (g && g.klaar ? "" : "opacity:.5") + '">'
+            + esc(g ? g.naam : id) + '</span>';
+        }).join("") + '</div></div>';
+  });
+  h += '</div>';
+  doel.innerHTML = h;
+}
+
+/* ---------- werkblad: runs, beslissingen, rapporten ---------- */
+var runlijst = [];
+function laadRuns(){
+  return fetch("/api/runs").then(function(r){return r.json();})
+    .then(function(d){ runlijst = d.runs || []; if(view==="werk") renderWerkblad(); })
+    .catch(function(){});
+}
+
+function renderWerkblad(){
+  var doel = el("werkblad"); if(!doel) return;
+  var h = '<h2 class="blad-kop">Werk</h2>'
+    + '<p class="blad-uit">Wat er gedraaid heeft, wat er ligt, en wat er op jou wacht.</p>';
+
+  h += '<div class="blad-sectie">Runs</div>';
+  if(!runlijst.length) h += '<div class="empty"><b>Nog niets gedraaid.</b> Kies een agent en zet hem aan het werk.</div>';
+  else {
+    h += '<div class="card">';
+    runlijst.forEach(function(r){
+      h += '<div class="runrij' + (r.fout?" fout":"") + '">'
+        + '<span class="wie">' + esc(meta(r.agentId).naam) + '</span>'
+        + '<span class="wat">' + esc(r.fout ? r.fout : r.opdracht) + '</span>'
+        + '<span class="cijfers">' + esc(r.model) + '<br>'
+        + (r.fout ? "mislukt" : ((r.tokensIn+r.tokensUit) + " tokens"
+            + (r.kosten!=null ? " · $"+r.kosten.toFixed(4) : "")
+            + " · " + (r.duur/1000).toFixed(1) + "s")) + '</span>'
+        + (r.bestand ? '<button class="quiet" data-read="'+esc(r.bestand)+'">lezen</button>' : '')
+        + '</div>';
+    });
+    h += '</div>';
+  }
+  doel.innerHTML = h + zijkant();
 }
 
 /* ---------- sleutels ---------- */
@@ -285,6 +381,24 @@ function feedRegel(r){
     + (r.soort==="demo" ? '<span class="mrk">demo</span>' : "");
   lijst.prepend(d);
   while(lijst.children.length > 80) lijst.lastChild.remove();
+  var tab = document.querySelector('.insp-kop .tab[data-insp="live"]');
+  if(tab && !tab.classList.contains("aan")) tab.style.color = "var(--busy)";
+}
+
+function renderBalk(){
+  var b = S.bedrijf;
+  if(b){
+    el("bedrijfNaam").textContent = (b.bedrijf||{}).naam || "Validatiedesk";
+    el("bedrijfWat").textContent  = (b.bedrijf||{}).wat || ("operator " + (b.operator||""));
+  }
+  var werk=S.agents.filter(function(a){var st=statusOf(a.id);return st==="opgepakt"||st==="nieuw";}).length;
+  var open=S.desk.briefs.filter(function(x){return x.status==="nieuw"||x.status==="opgepakt";}).length;
+  var jou=S.desk.decisions.filter(function(d){return !d.resolved;}).length;
+  el("meters").innerHTML =
+      '<span class="meter busy"><b>'+werk+'/'+S.agents.length+'</b><span>aan het werk</span></span>'
+    + '<span class="meter"><b>'+open+'</b><span>opdrachten</span></span>'
+    + '<span class="meter ok"><b>'+S.drafts.length+'</b><span>rapporten</span></span>'
+    + '<span class="meter '+(jou?"wait":"")+'"><b>'+jou+'</b><span>aan jou</span></span>';
 }
 
 function renderHud(){
@@ -451,7 +565,7 @@ function renderPanel(){
   if(run && run.agentId === sel) renderWerkbank();
 }
 
-function renderSide(){
+function zijkant(){
   var open=S.desk.decisions.filter(function(d){return !d.resolved;});
   var done=S.desk.decisions.filter(function(d){return d.resolved;});
   var h='<section class="panel"><h2>NU AAN JOU</h2><div class="body">';
@@ -499,7 +613,7 @@ function renderSide(){
     +'je hem aan in Claude Code — daar heeft hij wel WebSearch en WebFetch. Wat je hier ziet '
     +'bewegen komt van echte runs en echte bestanden, niet van een simulatie.</p>'
     +'</div></section>';
-  el("side").innerHTML=h;
+  return h;
 }
 function capsOf(dep){ return S.capabilities.filter(function(c){return c.department===dep;}); }
 function capByName(n){ return S.capabilities.filter(function(c){return c.name===n;})[0]; }
@@ -581,37 +695,34 @@ function renderCapability(){
   return h+'</div></section>';
 }
 function renderAll(){
-  var tabs=el("tabs");
-  if(tabs){
-    tabs.querySelectorAll("button").forEach(function(b){
-      b.setAttribute("aria-selected", b.dataset.view===view ? "true":"false");
-    });
-  }
-  var hier=el("hier");
-  var vb=el("vloerbox");
-  if(vb) vb.style.display = view==="map" ? "" : "none";
-  if(hier){ hier.hidden = view!=="hier"; if(view==="hier") hier.innerHTML=renderHierarchy(); }
-  var sb=el("sterbox");
-  if(sb){
-    sb.hidden = view!=="ster";
-    if(view==="ster"){
-      setupSterren();
-      sterren.setState(S);
-      sterren._resize();
-      el("sNu").textContent = (sterren.huidige()||{}).label || "";
-    }
-  }
-  var legend=document.querySelector(".legend");
-  if(legend) legend.style.display = view==="map" ? "" : "none";
-  var ms=el("mobstat");
-  if(ms) ms.style.display = view==="map" ? "" : "none";
+  /* navigatie */
+  document.querySelectorAll("#rail button[data-view]").forEach(function(b){
+    b.setAttribute("aria-current", b.dataset.view === view ? "true" : "false");
+  });
+  document.querySelectorAll(".zicht").forEach(function(z){
+    z.classList.toggle("aan", z.dataset.zicht === view);
+  });
 
-  if(view==="map"){ renderMobStat(); renderHud(); renderKamers(); renderTicker(); markeerSelectie(); renderPanel(); }
-  else if(view==="ster"){ renderPanel(); }
-  else { el("panel").innerHTML = renderCapability(); }
-  renderSide();
+  renderBalk();
+
+  if(view === "map"){
+    renderHud(); renderKamers(); renderTicker(); markeerSelectie(); renderPanel();
+  } else if(view === "ster"){
+    var sb = el("sterbox");
+    if(sb){ setupSterren(); sterren.setState(S); sterren._resize();
+            el("sNu").textContent = (sterren.huidige()||{}).label || ""; }
+    renderPanel();
+  } else if(view === "hier"){
+    el("hier").innerHTML = renderHierarchy();
+    el("panel").innerHTML = renderCapability();
+  } else if(view === "tools"){
+    renderTools(); renderPanel();
+  } else if(view === "werk"){
+    renderWerkblad(); renderPanel();
+  }
 }
 
+/* ---------- markdown lezer ---------- */
 function md(src){
   var out=[],lines=src.split(/\r?\n/),inCode=false,listTag=null,para=[],liBuf=null;
   function inline(t){
@@ -653,8 +764,28 @@ function openReader(file){
     el("reader").hidden=false;
   });
 }
+/* ---------- inspecteur ---------- */
+function toonInspecteur(pane){
+  if(pane === "live"){
+    var t2 = document.querySelector('.insp-kop .tab[data-insp="live"]');
+    if(t2) t2.style.color = "";
+  }
+  if(pane){
+    document.querySelectorAll(".insp-kop .tab").forEach(function(t){
+      t.classList.toggle("aan", t.dataset.insp === pane); });
+    document.querySelectorAll(".insp-pane").forEach(function(p){
+      p.classList.toggle("aan", p.dataset.pane === pane); });
+  }
+  if(window.matchMedia("(max-width:900px)").matches) el("inspecteur").classList.add("open");
+}
+
 /* ---------- events ---------- */
 document.addEventListener("click",function(e){
+  var it = e.target.closest(".insp-kop .tab");
+  if(it){ toonInspecteur(it.dataset.insp); return; }
+  if(e.target.id === "toonInspecteur"){ toonInspecteur(); return; }
+  if(e.target.id === "sluitInspecteur"){ el("inspecteur").classList.remove("open"); return; }
+  if(e.target.id === "railSleutels"){ toonSleutels(); return; }
   var vt=e.target.closest("[data-view]");
   if(vt){ view=vt.dataset.view; renderAll(); return; }
   var cp=e.target.closest("[data-cap]");
@@ -729,5 +860,7 @@ setInterval(function(){
 setupVloer();
 load();
 laadModellen();
+laadGereedschap();
+laadRuns();
 setInterval(load, 20000);
 })();

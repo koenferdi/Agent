@@ -13,8 +13,10 @@ import { readFile, writeFile, mkdir, readdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { praat, lijst, standaard } from "./modellen.mjs";
+import { GEREEDSCHAP, status as gereedschapStatus, voerUit, alsOpenAI, alsAnthropic } from "./gereedschap.mjs";
 
 const MAX_TOKENS = 4000;
+const MAX_RONDES = 6;      // hoe vaak een agent gereedschap mag pakken
 
 export function slug(tekst){
   return String(tekst || "run").toLowerCase()
@@ -29,7 +31,25 @@ function zonderFrontmatter(raw){
 
 /* De prompt is opgebouwd uit bestanden die jij kunt lezen en aanpassen.
  * Geen verborgen instructies. */
-async function bouwPrompt(root, agentId, opdracht){
+function gereedschapUitleg(beschikbaar){
+  if (!beschikbaar.length) return `## Belangrijk voor deze run
+
+Je draait zonder gereedschap: je kunt niet zoeken en geen bestanden openen.
+Werk met wat je weet. Weet je iets niet zeker, zeg dat. Verzin geen bronnen
+en geen cijfers.`;
+  return `## Je gereedschap
+
+Je hebt deze stukken gereedschap. Gebruik ze echt — leun niet op je geheugen
+als je het kunt opzoeken.
+
+${beschikbaar.map(g => "- **" + g.id + "** — " + g.kort).join("\n")}
+
+Werk zo: zoek eerst, open dan de bronnen die er toe doen, en schrijf pas
+daarna. Noem in je bronnenlijst de URL's die je echt geopend hebt. Een bron
+die je niet hebt gelezen noem je niet.`;
+}
+
+async function bouwPrompt(root, agentId, opdracht, beschikbaar){
   const agentPad = join(root, ".claude", "agents", agentId + ".md");
   if (!existsSync(agentPad)) throw new Error("agent bestaat niet: " + agentId);
   const agentRaw = await readFile(agentPad, "utf8");
@@ -44,11 +64,8 @@ async function bouwPrompt(root, agentId, opdracht){
     zonderFrontmatter(agentRaw),
     cap ? "## Jouw SOP\n\n" + cap : "",
     claudeMd ? "## De afspraken van deze werkplek\n\n" + claudeMd : "",
-    `## Belangrijk voor deze run
-
-Je draait nu zonder gereedschap: je kunt niet zoeken op internet en geen
-bestanden openen. Werk met wat je weet en met wat er in deze prompt staat.
-Weet je iets niet zeker, zeg dat dan. Verzin geen bronnen en geen cijfers.
+    gereedschapUitleg(beschikbaar),
+    `## Hoe je oplevert
 
 Lever je antwoord als markdown, en begin met exact dit blok:
 
@@ -61,7 +78,7 @@ Sources: <welke bronnen je gebruikt hebt, of: geen — gedraaid zonder webtoegan
 Daarna een kop met # en je stuk. Schrijf in het Nederlands.`
   ].filter(Boolean).join("\n\n---\n\n");
 
-  return { systeem, bericht: opdracht };
+  return { systeem };
 }
 
 /* Kosten van een run, als we de prijs van het model kennen. */
@@ -83,22 +100,57 @@ export async function draai({ root, agentId, opdracht, modelId, stap, signal }){
     + (model.gratis ? " (gratis niveau)" : "")
     + (bron === "ingebakken" ? " — uit de ingebakken lijst, niet geverifieerd" : "") });
 
-  const { systeem, bericht } = await bouwPrompt(root, agentId, opdracht);
-  meld("stap", { tekst: "Agent geladen uit .claude/agents/" + agentId + ".md" });
-  meld("model", { model: model.id, aanbieder: model.aanbieder, gratis: model.gratis });
-
-  let uit;
+  /* welk gereedschap mag deze agent, en werkt het? */
+  const status = await gereedschapStatus(root);
+  const magNiet = new Set();
   try {
-    uit = await praat({
-      root, aanbieder: model.aanbieder, model: model.id, systeem, bericht,
-      maxTokens: MAX_TOKENS, signal,
-      onDelta: t => meld("tekst", { tekst: t })
-    });
-  } catch (e){
-    meld("fout", { tekst: String(e.message || e) });
-    await logboek(root, { agentId, opdracht, model: model.id, fout: String(e.message || e),
-      begonnen: new Date(begin).toISOString(), duur: Date.now()-begin });
-    throw e;
+    const agentRaw = await readFile(join(root, ".claude", "agents", agentId + ".md"), "utf8");
+    const m = agentRaw.match(/^tools:\s*(.*)$/m);
+    if (m && /geen/i.test(m[1])) status.forEach(g => magNiet.add(g.id));
+  } catch {}
+  const kanNietMetGereedschap = model.aanbieder === "google";
+  const beschikbaar = kanNietMetGereedschap ? [] : status.filter(g => g.klaar && !magNiet.has(g.id));
+
+  const { systeem } = await bouwPrompt(root, agentId, opdracht, beschikbaar);
+  meld("stap", { tekst: "Agent geladen uit .claude/agents/" + agentId + ".md" });
+  meld("stap", { tekst: beschikbaar.length
+    ? "Gereedschap aan: " + beschikbaar.map(g => g.id).join(", ")
+    : (kanNietMetGereedschap ? "Dit model werkt hier zonder gereedschap."
+                             : "Geen gereedschap beschikbaar — hij werkt uit zijn geheugen.") });
+  meld("model", { model: model.id, aanbieder: model.aanbieder, gratis: model.gratis,
+                  gereedschap: beschikbaar.map(g => g.id) });
+
+  const vorm = model.aanbieder === "anthropic" ? alsAnthropic(beschikbaar) : alsOpenAI(beschikbaar);
+  const verloop = [{ rol: "gebruiker", tekst: opdracht }];
+  let uit = { tekst: "", tokensIn: 0, tokensUit: 0 }, gebruikt = [];
+
+  for (let ronde = 0; ronde < MAX_RONDES; ronde++){
+    let r;
+    try {
+      r = await praat({ root, aanbieder: model.aanbieder, model: model.id, systeem, verloop,
+        gereedschap: vorm, maxTokens: MAX_TOKENS, signal,
+        onDelta: t => meld("tekst", { tekst: t }) });
+    } catch (e){
+      meld("fout", { tekst: String(e.message || e) });
+      await logboek(root, { agentId, opdracht, model: model.id, fout: String(e.message || e),
+        begonnen: new Date(begin).toISOString(), duur: Date.now()-begin });
+      throw e;
+    }
+    uit.tokensIn += r.tokensIn; uit.tokensUit += r.tokensUit;
+    uit.tekst = r.tekst;
+
+    if (!r.vragen.length) break;
+
+    verloop.push({ rol: "assistent", tekst: r.tekst, vragen: r.vragen });
+    for (const v of r.vragen){
+      meld("gereedschap", { naam: v.naam, args: v.args });
+      const res = await voerUit(root, v.naam, v.args || {});
+      gebruikt.push({ naam: v.naam, args: v.args, kort: res.kort });
+      meld("stap", { tekst: res.kort });
+      verloop.push({ rol: "gereedschap", id: v.id, naam: v.naam, tekst: res.tekst });
+    }
+    if (ronde === MAX_RONDES - 1)
+      meld("stap", { tekst: "Grens van " + MAX_RONDES + " rondes bereikt; hij rondt af met wat hij heeft." });
   }
 
   /* het rapport wegschrijven */
@@ -113,6 +165,7 @@ export async function draai({ root, agentId, opdracht, modelId, stap, signal }){
   const samen = {
     agentId, opdracht, model: model.id, aanbieder: model.aanbieder,
     bestand: naam, tokensIn: uit.tokensIn, tokensUit: uit.tokensUit, kosten: k,
+    gereedschap: gebruikt,
     begonnen: new Date(begin).toISOString(), duur: Date.now()-begin
   };
   await logboek(root, samen);

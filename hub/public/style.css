@@ -1,91 +1,111 @@
+/* Validatiedesk — de schil.
+ *
+ * Donker, strak, met de mate van neon die de vloer al draagt en verder rust.
+ * Drie kolommen: navigatie, werkblad, inspecteur. Op een telefoon wordt de
+ * navigatie een balk onderin en de inspecteur een lade.
+ */
 :root{
-  --night:#0B1220; --night-2:#111A2C; --panel:#151F35; --panel-2:#1C2942;
-  --line:#27354F; --line-2:#38496B;
-  --ink:#E8EDF7; --ink-soft:#9BA9C4; --ink-faint:#6B7A99;
+  --nacht:#070C16; --nacht-2:#0B1322; --paneel:#0D1526; --paneel-2:#121C31;
+  --lijn:#1B2740; --lijn-2:#2A3A5C;
+  --ink:#E8EDF7; --ink-soft:#9BA9C4; --ink-faint:#68789C;
   --gold:#F5C542; --ok:#5FCE9B; --wait:#F0B454; --busy:#6BA8F5; --idle:#5A6982;
+  /* oude namen, nog in gebruik door onderdelen */
+  --night:var(--nacht); --night-2:var(--nacht-2); --panel:var(--paneel); --panel-2:var(--paneel-2);
+  --line:var(--lijn); --line-2:var(--lijn-2);
+  --rail:76px; --insp:342px;
+  color-scheme:dark;
 }
 *{box-sizing:border-box}
-html,body{margin:0}
-body{background:var(--night);color:var(--ink);
+html,body{margin:0;height:100%;background:var(--nacht);color:var(--ink);
   font-family:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-  font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
-.wrap{max-width:1200px;margin:0 auto;padding:22px 16px 64px}
-.pix{font-family:"Press Start 2P",ui-monospace,monospace;line-height:1.6}
+  font-size:14px;line-height:1.55;-webkit-font-smoothing:antialiased;overscroll-behavior:none}
+body{overflow:hidden}
+button,input,select,textarea{font-family:inherit}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .mono{font-family:"IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
-code{font-family:"IBM Plex Mono",monospace;font-size:.9em;background:var(--panel-2);
+.pix{font-family:"Press Start 2P",ui-monospace,monospace}
+code{font-family:"IBM Plex Mono",monospace;font-size:.9em;background:var(--paneel-2);
   padding:1px 5px;border-radius:2px;color:var(--ink-soft)}
+.alleenSmal{display:none}
 
-.hdr{display:flex;flex-wrap:wrap;gap:14px 20px;align-items:center;justify-content:space-between;margin-bottom:16px}
-.hdr h1{margin:0;font-size:17px}
-.hdr .sub{color:var(--ink-soft);font-size:13.5px;margin-top:9px;max-width:64ch}
-.hdr-right{display:flex;gap:8px;align-items:center}
-.pill{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--ink-faint);
-  border:1px solid var(--line-2);background:var(--panel);padding:6px 11px;border-radius:3px}
-.pill[data-t="ok"]{color:var(--ok);border-color:var(--ok)}
-.pill[data-t="err"]{color:var(--wait);border-color:var(--wait)}
+#app{display:grid;grid-template-columns:var(--rail) minmax(0,1fr) var(--insp);height:100dvh}
 
-/* ---------- de vloer ---------- */
-.mapbox{border:2px solid var(--line-2);border-radius:4px;overflow:hidden;background:var(--night);
-  box-shadow:0 18px 44px -28px rgba(0,0,0,.95)}
-.vloerbox{display:grid;grid-template-columns:minmax(0,1fr) 300px;background:var(--night)}
-@media (max-width:900px){ .vloerbox{grid-template-columns:1fr} }
+/* ---------- navigatie ---------- */
+#rail{background:var(--nacht-2);border-right:1px solid var(--lijn);
+  display:flex;flex-direction:column;align-items:stretch;padding:10px 0;gap:2px;z-index:6}
+#rail .merk{width:38px;height:38px;margin:2px auto 14px;border-radius:9px;display:grid;place-items:center;
+  background:linear-gradient(155deg,#1D3568,#101A2E);border:1px solid var(--lijn-2);
+  font-family:"Press Start 2P",monospace;font-size:9px;color:var(--gold);
+  box-shadow:0 0 22px -6px rgba(245,197,66,.45)}
+#rail button,#rail a{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;
+  background:none;border:0;color:var(--ink-faint);padding:10px 4px;cursor:pointer;text-decoration:none}
+#rail i{font-style:normal;font-size:17px;line-height:1}
+#rail span{font-family:"IBM Plex Mono",monospace;font-size:9px;letter-spacing:.04em}
+#rail button:hover,#rail a:hover{color:var(--ink-soft)}
+#rail button[aria-current="true"]{color:var(--gold)}
+#rail button[aria-current="true"]::before{content:"";position:absolute;left:0;top:6px;bottom:6px;
+  width:2px;background:var(--gold);box-shadow:0 0 12px var(--gold)}
+#rail button[aria-current="true"]::after{content:"";position:absolute;inset:2px 6px;border-radius:8px;
+  background:radial-gradient(ellipse at center,rgba(245,197,66,.11),transparent 70%);pointer-events:none}
+#rail .rek{flex:1}
+#rail .onder{opacity:.75}
 
-.stage{position:relative;min-width:0}
-#vloer{display:block;width:100%;height:clamp(380px,60vh,700px);touch-action:none;
-  background:var(--night);cursor:default}
+/* ---------- werkblad ---------- */
+#blad{display:flex;flex-direction:column;min-width:0;background:var(--nacht)}
+#balk{display:flex;align-items:center;gap:18px;padding:0 16px;height:54px;flex:none;
+  border-bottom:1px solid var(--lijn);background:var(--nacht-2)}
+#balk .titel b{display:block;font-size:14.5px;font-weight:600;line-height:1.2}
+#balk .titel span{display:block;font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--ink-faint);
+  max-width:38ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#balk .meters{display:flex;gap:7px;margin-left:6px;overflow-x:auto;scrollbar-width:none}
+#balk .meters::-webkit-scrollbar{display:none}
+.meter{flex:none;display:flex;align-items:baseline;gap:6px;background:var(--paneel);
+  border:1px solid var(--lijn);border-radius:3px;padding:5px 9px}
+.meter b{font-family:"IBM Plex Mono",monospace;font-size:13px;font-weight:500;font-variant-numeric:tabular-nums}
+.meter span{font-family:"IBM Plex Mono",monospace;font-size:9.5px;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--ink-faint)}
+.meter.ok b{color:var(--ok)} .meter.wait b{color:var(--wait)} .meter.busy b{color:var(--busy)}
+#balk .acties{margin-left:auto;display:flex;align-items:center;gap:7px}
+#balk .acties button{background:var(--paneel);border:1px solid var(--lijn-2);color:var(--ink-soft);
+  border-radius:3px;padding:6px 10px;font-size:13px;cursor:pointer}
+#balk .acties button:hover{border-color:var(--gold);color:var(--gold)}
+.pill{font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--ink-faint);
+  border:1px solid var(--lijn-2);background:var(--paneel);padding:5px 9px;border-radius:3px;white-space:nowrap}
+.pill[data-t="ok"]{color:var(--ok);border-color:rgba(95,206,155,.4)}
+.pill[data-t="err"]{color:var(--wait);border-color:rgba(240,180,84,.45)}
 
-.hud{position:absolute;top:10px;left:10px;display:flex;flex-wrap:wrap;gap:4px 14px;
-  font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;
-  color:var(--ink-faint);background:rgba(11,18,32,.7);border:1px solid var(--line);
-  border-radius:3px;padding:6px 11px;backdrop-filter:blur(6px);max-width:calc(100% - 20px)}
-.hud b{font-weight:600;color:var(--ink)}
-.hud b.ok{color:var(--ok)} .hud b.wait{color:var(--wait)} .hud b.busy{color:var(--busy)}
+#doek{flex:1;position:relative;min-height:0}
+.zicht{position:absolute;inset:0;display:none;overflow:auto}
+.zicht.aan{display:block}
+.zicht[data-zicht="map"],.zicht[data-zicht="ster"]{overflow:hidden}
+.blad-in{padding:20px;max-width:1100px}
 
-.kamers{position:absolute;left:10px;bottom:88px;display:flex;flex-wrap:wrap;gap:5px;
-  max-width:calc(100% - 20px)}
-.kamers button{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.05em;
-  background:rgba(21,31,53,.88);border:1px solid var(--line-2);color:var(--ink-faint);
-  border-radius:99px;padding:5px 10px;backdrop-filter:blur(6px)}
-.kamers button:hover{color:var(--ink)}
+/* de vloer vult zijn zicht helemaal */
+.stage{position:absolute;inset:0}
+#vloer{display:block;width:100%;height:100%;touch-action:none;background:var(--nacht)}
+.sterbox{position:absolute;inset:0;background:#080D18}
+#sterren{display:block;width:100%;height:100%}
 
-.vloerknoppen{position:absolute;top:10px;right:10px;display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
-.vloerknoppen button,.vloerknoppen .knopje{font:inherit;font-size:11.5px;font-weight:500;
-  background:rgba(21,31,53,.9);border:1px solid var(--line-2);color:var(--ink-soft);
-  border-radius:3px;padding:5px 9px;cursor:pointer;text-decoration:none;backdrop-filter:blur(6px)}
-.vloerknoppen button:hover,.vloerknoppen .knopje:hover{border-color:var(--gold);color:var(--gold)}
-.vloerknoppen button[aria-pressed="true"]{border-color:var(--wait);color:var(--wait);
-  background:rgba(240,180,84,.14)}
-
-/* ---------- lopende band met de stand van zaken ---------- */
-.ticker{position:absolute;left:0;right:0;bottom:0;height:26px;overflow:hidden;
-  background:linear-gradient(180deg,rgba(11,18,32,0),rgba(11,18,32,.92) 40%);
-  border-top:1px solid rgba(56,73,107,.5);display:flex;align-items:center}
-.ticker .baan{display:flex;gap:0;white-space:nowrap;will-change:transform;
-  animation:schuif 64s linear infinite}
-.ticker .baan:hover{animation-play-state:paused}
-.ticker i{display:inline-flex;align-items:center;gap:7px;padding:0 20px;
-  font-family:"IBM Plex Mono",monospace;font-size:11px;font-style:normal;color:var(--ink-faint)}
-.ticker i b{color:var(--ink-soft);font-weight:500}
-.ticker i s{width:5px;height:5px;border-radius:50%;text-decoration:none;flex:none}
-@keyframes schuif{from{transform:translateX(0)}to{transform:translateX(-50%)}}
-@media (prefers-reduced-motion:reduce){ .ticker .baan{animation:none} }
-
-.vloerlabel{position:absolute;left:10px;bottom:34px;max-width:min(420px,calc(100% - 20px));margin:0;
-  background:rgba(11,18,32,.82);border:1px solid var(--line);border-left:2px solid var(--line-2);
-  border-radius:3px;padding:7px 11px;font-size:11.5px;line-height:1.5;color:var(--ink-faint);
-  backdrop-filter:blur(6px)}
-.vloerlabel b{color:var(--ink-soft)}
-.vloerlabel code{font-size:10.5px;background:transparent;padding:0;color:var(--ink-soft)}
-body.demo .vloerlabel{border-left-color:var(--wait);color:var(--wait)}
-body.demo .vloerlabel b::before{content:"Rondloopmodus aan. ";color:var(--wait)}
-
-/* ---------- live-feed ---------- */
-.feed{border-left:1px solid var(--line);background:var(--night-2);display:flex;flex-direction:column;min-width:0}
-.feed h2{margin:0;padding:11px 14px;font-family:"Press Start 2P",monospace;font-size:9px;
-  letter-spacing:.02em;border-bottom:1px solid var(--line);color:var(--ink-soft)}
-#feedlijst{flex:1;overflow-y:auto;padding:8px 12px;max-height:clamp(220px,44vh,520px)}
-.regel{display:flex;gap:8px;align-items:baseline;padding:7px 0;
-  border-bottom:1px solid rgba(39,53,79,.6);font-size:12.5px;line-height:1.45;color:var(--ink-soft)}
+/* ---------- inspecteur ---------- */
+#inspecteur{background:var(--paneel);border-left:1px solid var(--lijn);
+  display:flex;flex-direction:column;min-width:0;z-index:5}
+.insp-kop{display:flex;align-items:center;border-bottom:1px solid var(--lijn);background:var(--nacht-2);flex:none}
+.insp-kop .tab{background:none;border:0;border-bottom:2px solid transparent;color:var(--ink-faint);
+  padding:13px 15px;font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.09em;
+  text-transform:uppercase;cursor:pointer}
+.insp-kop .tab.aan{color:var(--gold);border-bottom-color:var(--gold)}
+.insp-kop .sluit{margin-left:auto;background:none;border:0;color:var(--ink-faint);font-size:20px;
+  padding:0 14px;cursor:pointer}
+.insp-lijf{flex:1;min-height:0;position:relative}
+.insp-pane{position:absolute;inset:0;display:none;overflow-y:auto}
+.insp-pane.aan{display:block}
+.insp-pane[data-pane="live"]{display:none;flex-direction:column}
+.insp-pane[data-pane="live"].aan{display:flex}
+#feedlijst{flex:1;overflow-y:auto;padding:10px 14px}
+.feednote{margin:0;padding:11px 14px;border-top:1px solid var(--lijn);font-size:11px;
+  line-height:1.5;color:var(--ink-faint);flex:none}
+.regel{display:flex;gap:8px;align-items:baseline;padding:7px 0;border-bottom:1px solid rgba(27,39,64,.9);
+  font-size:12.5px;line-height:1.45;color:var(--ink-soft)}
 .regel:last-child{border-bottom:0}
 .regel .p{width:6px;height:6px;border-radius:50%;flex:none;transform:translateY(-1px)}
 .regel time{font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--ink-faint);flex:none}
@@ -95,25 +115,73 @@ body.demo .vloerlabel b::before{content:"Rondloopmodus aan. ";color:var(--wait)}
 .regel.s-demo{color:var(--ink-faint)}
 .regel.s-stand{color:var(--ink)}
 .regel.s-interactie{color:var(--ink-faint);font-style:italic}
-.feednote{margin:0;padding:10px 14px;border-top:1px solid var(--line);
-  font-size:11px;line-height:1.5;color:var(--ink-faint)}
 
-/* ---------- agent naar een ruimte sturen ---------- */
-.stuur{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:14px;
-  padding-top:13px;border-top:1px solid var(--line)}
-.stuur .lbl{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.09em;
-  text-transform:uppercase;color:var(--ink-faint);margin-right:3px}
-.stuur button{font-size:12px;padding:5px 10px}
+/* de panelen in de inspecteur hebben geen eigen rand nodig */
+#panel .panel{background:none;border:0;margin:0}
+#panel .panel>h2{background:var(--nacht-2);border-bottom:1px solid var(--lijn)}
 
-.legend{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;padding:9px 12px;
-  background:var(--night-2);border-top:1px solid var(--line);
+/* ---------- gereedschapsbibliotheek ---------- */
+.biblio{display:grid;grid-template-columns:1fr;gap:12px}
+@media (min-width:820px){.biblio{grid-template-columns:1fr 1fr}}
+.gkaart{background:var(--paneel);border:1px solid var(--lijn);border-radius:5px;padding:15px 16px;
+  position:relative;overflow:hidden}
+.gkaart::before{content:"";position:absolute;left:0;right:0;top:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(107,168,245,.5),transparent)}
+.gkaart.uit{opacity:.72}
+.gkaart .kop{display:flex;align-items:center;gap:11px;margin-bottom:9px}
+.gkaart .ic{width:34px;height:34px;border-radius:8px;display:grid;place-items:center;flex:none;
+  background:var(--paneel-2);border:1px solid var(--lijn-2);font-size:15px;color:var(--busy)}
+.gkaart.uit .ic{color:var(--idle)}
+.gkaart h3{margin:0;font-size:15px;font-weight:500}
+.gkaart .status{margin-left:auto;font-family:"IBM Plex Mono",monospace;font-size:9.5px;
+  letter-spacing:.07em;text-transform:uppercase;padding:3px 7px;border-radius:2px;border:1px solid currentColor}
+.gkaart .status.aan{color:var(--ok)} .gkaart .status.uit{color:var(--idle)}
+.gkaart p{margin:0 0 8px;font-size:13px;color:var(--ink-soft);line-height:1.55}
+.gkaart .waarom{color:var(--ink-faint);font-size:12.5px}
+.gkaart .voet{margin-top:11px;padding-top:10px;border-top:1px solid var(--lijn);
   font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--ink-faint)}
-.legend span{display:flex;align-items:center;gap:6px}
-.legend .spacer{flex:1}
-.legend i.d{width:7px;height:7px;border-radius:50%;display:block}
-i.d.idle{background:var(--idle)} i.d.nieuw{background:var(--wait)}
-i.d.opgepakt{background:var(--busy)} i.d.geleverd{background:var(--ok)}
+.gkaart .voet b{color:var(--ink-soft);font-weight:500}
+.gebruikers{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.gebruikers span{font-family:"IBM Plex Mono",monospace;font-size:10.5px;padding:2px 7px;border-radius:99px;
+  border:1px solid var(--lijn-2);color:var(--ink-soft)}
 
+.blad-kop{margin:0 0 4px;font-size:19px;font-weight:600}
+.blad-uit{margin:0 0 20px;color:var(--ink-soft);font-size:13.5px;max-width:66ch;line-height:1.6}
+.blad-sectie{margin:26px 0 12px;font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--ink-faint)}
+
+/* runs */
+.runrij{display:flex;gap:12px;align-items:baseline;padding:11px 0;border-bottom:1px solid var(--lijn);
+  font-size:13px;flex-wrap:wrap}
+.runrij:last-child{border-bottom:0}
+.runrij .wie{font-weight:500;min-width:140px}
+.runrij .wat{color:var(--ink-soft);flex:1;min-width:200px}
+.runrij .cijfers{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--ink-faint);
+  font-variant-numeric:tabular-nums;text-align:right}
+.runrij.fout .wat{color:var(--wait)}
+
+/* ---------- telefoon ---------- */
+@media (max-width:900px){
+  :root{--rail:0px;--insp:0px}
+  .alleenSmal{display:inline-flex}
+  #app{grid-template-columns:1fr;grid-template-rows:1fr}
+  #rail{position:fixed;left:0;right:0;bottom:0;top:auto;flex-direction:row;justify-content:space-around;
+    border-right:0;border-top:1px solid var(--lijn-2);padding:4px 2px calc(4px + env(safe-area-inset-bottom));
+    background:rgba(11,19,34,.96);backdrop-filter:blur(10px)}
+  #rail .merk,#rail .rek,#rail .onder{display:none}
+  #rail button{padding:7px 4px}
+  #rail button[aria-current="true"]::before{left:14%;right:14%;top:0;bottom:auto;width:auto;height:2px}
+  #blad{padding-bottom:58px}
+  #balk{gap:10px;padding:0 12px}
+  #balk .titel span{display:none}
+  #inspecteur{position:fixed;left:0;right:0;bottom:0;top:auto;height:74dvh;z-index:20;
+    border-left:0;border-top:1px solid var(--lijn-2);border-radius:12px 12px 0 0;
+    transform:translateY(101%);transition:transform .26s cubic-bezier(.2,.9,.3,1);
+    box-shadow:0 -18px 50px rgba(0,0,0,.6)}
+  #inspecteur.open{transform:none}
+  .blad-in{padding:14px 12px 30px}
+}
+@media (prefers-reduced-motion:reduce){ #inspecteur{transition:none} }
 /* panels */
 .cols{display:grid;grid-template-columns:1fr;gap:20px;margin-top:22px}
 @media (min-width:960px){.cols{grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);align-items:start}}
@@ -271,31 +339,6 @@ details.adder .body{padding:14px}
 .sop ol,.reader-body ol{padding-left:22px;display:flex;flex-direction:column;gap:7px}
 .sop ol li,.reader-body ol li{padding-left:2px}
 
-/* ---------- telefoon: wolkjes vervangen door een statusstrip ---------- */
-.mobstat{display:none}
-@media (max-width:700px){
-  .mobstat{display:flex;flex-direction:column;background:var(--night-2);border-top:1px solid var(--line)}
-  .mobstat button{display:flex;align-items:center;gap:9px;width:100%;text-align:left;
-    background:transparent;border:0;border-bottom:1px solid var(--line);border-radius:0;
-    padding:11px 12px;color:var(--ink)}
-  .mobstat button:last-child{border-bottom:0}
-  .mobstat button[aria-pressed="true"]{background:var(--panel);box-shadow:inset 3px 0 0 var(--gold)}
-  .mobstat .no{font-family:"Press Start 2P",monospace;font-size:7px;color:var(--ink-faint);flex:none}
-  .mobstat .nm{font-family:"Press Start 2P",monospace;font-size:8px;flex:none}
-  .mobstat .st{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--ink-soft);
-    margin-left:auto;text-align:right}
-  .mobstat i{width:8px;height:8px;border-radius:50%;flex:none}
-  .wrap{padding:16px 12px 48px}
-  .hdr h1{font-size:15px}
-  .legend{font-size:10px;gap:5px 11px}
-  .panel>h2{font-size:9px}
-  .hier{padding:16px 10px 20px}
-  .hier .lane{min-width:660px}
-  .reader{padding:0}
-  .reader-box{max-height:100vh;width:100%;border-radius:0}
-  .reader-body{padding:16px 16px 28px}
-}
-
 /* ---------- telefoon: vloer en feed ---------- */
 @media (max-width:900px){
   #vloer{height:clamp(300px,46vh,460px)}
@@ -372,3 +415,7 @@ details.adder .body{padding:14px}
   vertical-align:-2px;animation:knipper 1s steps(2) infinite}
 @keyframes knipper{50%{opacity:0}}
 @media (prefers-reduced-motion:reduce){.werklog .cursor{animation:none}}
+
+@media (max-width:640px){
+  #balk .meters{display:none}   /* op een telefoon staan de tellers al op de vloer */
+}

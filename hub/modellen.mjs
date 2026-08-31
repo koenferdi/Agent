@@ -175,39 +175,79 @@ async function* regels(res){
   }
 }
 
-export async function praat({ root, aanbieder, model, systeem, bericht, maxTokens = 4000, onDelta, signal }){
+/* Praten met een model.
+ *
+ * `verloop` is een neutrale geschiedenis die hier per aanbieder wordt vertaald:
+ *   { rol:"gebruiker",  tekst }
+ *   { rol:"assistent",  tekst, vragen:[{id,naam,args}] }
+ *   { rol:"gereedschap", id, naam, tekst }
+ *
+ * Terug komt de tekst, de gereedschapsvragen die het model stelde, en de
+ * tokens. Zolang er vragen terugkomen is het model nog niet klaar. */
+export async function praat({ root, aanbieder, model, systeem, verloop,
+                              gereedschap = [], maxTokens = 4000, onDelta, signal }){
   const sleutel = aanbieder === "lokaal" ? "lokaal" : await sleutelVan(root, aanbieder);
   if (!sleutel) throw new Error("Er staat nog geen sleutel voor " + aanbieder
     + ". Zet er een bij Instellingen, of kies een model dat er geen nodig heeft.");
 
-  let res, tekst = "", tokensIn = 0, tokensUit = 0;
+  let tekst = "", tokensIn = 0, tokensUit = 0;
+  const vragen = [];
 
   if (aanbieder === "anthropic"){
-    res = await fetch("https://api.anthropic.com/v1/messages", {
+    const berichten = [];
+    for (const b of verloop){
+      if (b.rol === "gebruiker") berichten.push({ role:"user", content: b.tekst });
+      else if (b.rol === "assistent"){
+        const inhoud = [];
+        if (b.tekst) inhoud.push({ type:"text", text: b.tekst });
+        for (const v of (b.vragen || [])) inhoud.push({ type:"tool_use", id: v.id, name: v.naam, input: v.args });
+        berichten.push({ role:"assistant", content: inhoud });
+      } else {
+        const vorige = berichten[berichten.length-1];
+        const blok = { type:"tool_result", tool_use_id: b.id, content: b.tekst };
+        if (vorige && vorige.role === "user" && Array.isArray(vorige.content)) vorige.content.push(blok);
+        else berichten.push({ role:"user", content:[blok] });
+      }
+    }
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST", signal,
       headers: { "x-api-key": sleutel, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-      body: JSON.stringify({ model, max_tokens: maxTokens, stream: true,
-        system: systeem, messages: [{ role: "user", content: bericht }] })
+      body: JSON.stringify({ model, max_tokens: maxTokens, stream: true, system: systeem,
+        messages: berichten, ...(gereedschap.length ? { tools: gereedschap } : {}) })
     });
     if (!res.ok) throw new Error("anthropic " + res.status + ": " + (await res.text()).slice(0,300));
+    let bezig = null, ruweArgs = "";
     for await (const d of regels(res)){
       if (d === "[DONE]") break;
       let j; try { j = JSON.parse(d); } catch { continue; }
-      if (j.type === "content_block_delta" && j.delta && j.delta.type === "text_delta"){
-        tekst += j.delta.text; onDelta && onDelta(j.delta.text);
+      if (j.type === "message_start" && j.message?.usage) tokensIn = j.message.usage.input_tokens || 0;
+      if (j.type === "content_block_start" && j.content_block?.type === "tool_use"){
+        bezig = { id: j.content_block.id, naam: j.content_block.name, args: {} }; ruweArgs = "";
       }
-      if (j.type === "message_start" && j.message && j.message.usage) tokensIn = j.message.usage.input_tokens || 0;
+      if (j.type === "content_block_delta"){
+        if (j.delta?.type === "text_delta"){ tekst += j.delta.text; onDelta && onDelta(j.delta.text); }
+        if (j.delta?.type === "input_json_delta") ruweArgs += j.delta.partial_json || "";
+      }
+      if (j.type === "content_block_stop" && bezig){
+        try { bezig.args = ruweArgs ? JSON.parse(ruweArgs) : {}; } catch { bezig.args = {}; }
+        vragen.push(bezig); bezig = null;
+      }
       if (j.type === "message_delta" && j.usage) tokensUit = j.usage.output_tokens || 0;
     }
   }
+
   else if (aanbieder === "google"){
+    /* Google spreekt hier geen gereedschap: de agent werkt met wat hij weet. */
+    const stukken = verloop.map(b => b.rol === "gereedschap"
+      ? "Uitkomst van " + b.naam + ":\n" + b.tekst
+      : b.tekst).filter(Boolean).join("\n\n");
     const url = "https://generativelanguage.googleapis.com/v1beta/models/" +
       encodeURIComponent(model) + ":streamGenerateContent?alt=sse&key=" + encodeURIComponent(sleutel);
-    res = await fetch(url, {
+    const res = await fetch(url, {
       method: "POST", signal, headers: { "content-type": "application/json" },
       body: JSON.stringify({
         systemInstruction: systeem ? { parts: [{ text: systeem }] } : undefined,
-        contents: [{ role: "user", parts: [{ text: bericht }] }],
+        contents: [{ role: "user", parts: [{ text: stukken }] }],
         generationConfig: { maxOutputTokens: maxTokens }
       })
     });
@@ -222,34 +262,52 @@ export async function praat({ root, aanbieder, model, systeem, bericht, maxToken
       }
     }
   }
+
   else {
-    /* openrouter, groq en openai spreken dezelfde taal */
     const basis = BASIS[aanbieder];
     if (!basis) throw new Error("onbekende aanbieder: " + aanbieder);
-    res = await fetch(basis + "/chat/completions", {
+    const berichten = systeem ? [{ role:"system", content: systeem }] : [];
+    for (const b of verloop){
+      if (b.rol === "gebruiker") berichten.push({ role:"user", content: b.tekst });
+      else if (b.rol === "assistent") berichten.push({
+        role:"assistant", content: b.tekst || null,
+        ...( (b.vragen||[]).length ? { tool_calls: b.vragen.map(v => ({
+          id: v.id, type:"function", function:{ name: v.naam, arguments: JSON.stringify(v.args||{}) } })) } : {})
+      });
+      else berichten.push({ role:"tool", tool_call_id: b.id, content: b.tekst });
+    }
+    const res = await fetch(basis + "/chat/completions", {
       method: "POST", signal,
-      headers: {
-        authorization: "Bearer " + sleutel, "content-type": "application/json",
-        ...(aanbieder === "openrouter" ? { "X-Title": "Validatiedesk" } : {})
-      },
-      body: JSON.stringify({
-        model, stream: true, max_tokens: maxTokens,
-        stream_options: { include_usage: true },
-        messages: [ ...(systeem ? [{ role:"system", content: systeem }] : []),
-                    { role: "user", content: bericht } ]
-      })
+      headers: { authorization: "Bearer " + sleutel, "content-type": "application/json",
+        ...(aanbieder === "openrouter" ? { "X-Title": "Validatiedesk" } : {}) },
+      body: JSON.stringify({ model, stream: true, max_tokens: maxTokens,
+        stream_options: { include_usage: true }, messages: berichten,
+        ...(gereedschap.length ? { tools: gereedschap, tool_choice: "auto" } : {}) })
     });
     if (!res.ok) throw new Error(aanbieder + " " + res.status + ": " + (await res.text()).slice(0,300));
+    const bezig = [];
     for await (const d of regels(res)){
       if (d === "[DONE]") break;
       let j; try { j = JSON.parse(d); } catch { continue; }
-      const stuk = j.choices?.[0]?.delta?.content || "";
-      if (stuk){ tekst += stuk; onDelta && onDelta(stuk); }
+      const delta = j.choices?.[0]?.delta;
+      if (delta?.content){ tekst += delta.content; onDelta && onDelta(delta.content); }
+      for (const tc of (delta?.tool_calls || [])){
+        const i = tc.index || 0;
+        bezig[i] = bezig[i] || { id: "", naam: "", ruw: "" };
+        if (tc.id) bezig[i].id = tc.id;
+        if (tc.function?.name) bezig[i].naam += tc.function.name;
+        if (tc.function?.arguments) bezig[i].ruw += tc.function.arguments;
+      }
       if (j.usage){ tokensIn = j.usage.prompt_tokens || tokensIn; tokensUit = j.usage.completion_tokens || tokensUit; }
+    }
+    for (const b of bezig){
+      if (!b || !b.naam) continue;
+      let args = {}; try { args = b.ruw ? JSON.parse(b.ruw) : {}; } catch {}
+      vragen.push({ id: b.id || ("t" + vragen.length), naam: b.naam, args });
     }
   }
 
-  return { tekst, tokensIn, tokensUit };
+  return { tekst, vragen, tokensIn, tokensUit };
 }
 
 export { INGEBAKKEN };
