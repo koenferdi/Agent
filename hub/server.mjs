@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
 import { platform, networkInterfaces } from "node:os";
 import { randomBytes, timingSafeEqual, createHash } from "node:crypto";
+import { CATALOGUS, namen, maakAgents, bestaande } from "./agentfabriek.mjs";
 
 const NODE_MAJOR = Number(process.versions.node.split(".")[0]);
 if (NODE_MAJOR < 18) {
@@ -21,6 +22,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..");
 const PUBLIC = join(HERE, "public");
 const DESK = join(HERE, "desk.json");
+const BEDRIJF = join(ROOT, "bedrijf.json");
 const PORT = Number(process.env.PORT || 4317);
 // Standaard alleen bereikbaar op deze computer. HOST=0.0.0.0 stelt hem open
 // voor andere apparaten op hetzelfde wifi-netwerk (zie "npm run mobiel").
@@ -229,6 +231,13 @@ async function readDrafts(){
   return out;
 }
 
+// bedrijf.json: wie jij bent en hoe je bedrijf heet. Staat buiten git.
+async function readBedrijf(){
+  if(!existsSync(BEDRIJF)) return null;
+  try { return JSON.parse(await readFile(BEDRIJF,"utf8")); }
+  catch { return null; }
+}
+
 async function readDesk(){
   if(!existsSync(DESK)) return { briefs: [], decisions: [] };
   try { return JSON.parse(await readFile(DESK,"utf8")); }
@@ -270,9 +279,40 @@ const server = createServer(async (req,res)=>{
       }
     }
     if(url.pathname === "/api/state"){
-      const [agents, drafts, desk, capabilities] = await Promise.all(
-        [readAgents(), readDrafts(), readDesk(), readCapabilities()]);
-      return send(res,200,JSON.stringify({ agents, drafts, desk, capabilities, root: ROOT }));
+      const [agents, drafts, desk, capabilities, bedrijf] = await Promise.all(
+        [readAgents(), readDrafts(), readDesk(), readCapabilities(), readBedrijf()]);
+      return send(res,200,JSON.stringify({ agents, drafts, desk, capabilities, bedrijf, root: ROOT }));
+    }
+
+    // ---------- onboarding ----------
+    if(url.pathname === "/api/catalogus"){
+      return send(res,200,JSON.stringify({
+        catalogus: CATALOGUS,
+        bestaande: await bestaande(ROOT),
+        bedrijf: await readBedrijf()
+      }));
+    }
+    if(url.pathname === "/api/namen"){
+      const zaad = Number(url.searchParams.get("zaad")) || Date.now();
+      return send(res,200,JSON.stringify({ namen: namen(zaad, 6) }));
+    }
+    if(url.pathname === "/api/onboarding" && req.method === "POST"){
+      let body=""; for await (const c of req){ body += c; if(body.length > 200_000) break; }
+      const g = JSON.parse(body || "{}");
+      const operator = String(g.operator || "").trim().slice(0,80);
+      const naam = String(g.bedrijf || "").trim().slice(0,80);
+      if(!operator || !naam) return send(res,400,'{"error":"naam en bedrijfsnaam zijn nodig"}');
+      const gekozen = Array.isArray(g.agents) ? g.agents.filter(x => CATALOGUS.some(c => c.id === x)) : [];
+      const uit = await maakAgents(ROOT, gekozen, naam);
+      const bedrijf = {
+        operator,
+        bedrijf: { naam, wat: String(g.wat || "").trim().slice(0,400), fase: g.fase || "valideren" },
+        agents: gekozen,
+        aangemaakt: (await readBedrijf())?.aangemaakt || new Date().toISOString(),
+        bijgewerkt: new Date().toISOString()
+      };
+      await writeFile(BEDRIJF, JSON.stringify(bedrijf,null,2)+"\n");
+      return send(res,200,JSON.stringify({ ok:true, bedrijf, ...uit }));
     }
     if(url.pathname === "/api/desk" && req.method === "POST"){
       let body=""; for await (const c of req) body += c;
