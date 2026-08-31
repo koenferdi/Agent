@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Opzetten · Validatiedesk</title>
+<meta name="theme-color" content="#0B1220">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%230B1220'/%3E%3Cpath d='M3 11h10v2H3zM5 6h6v5H5zM7 3h2v3H7z' fill='%23F5C542'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/style.css">
+<style>
+body{overflow-y:auto}
+.wizard{max-width:760px;margin:0 auto;padding:26px 16px 80px}
+.stappen{display:flex;gap:6px;margin-bottom:26px}
+.stappen i{flex:1;height:3px;border-radius:99px;background:var(--panel-2);display:block}
+.stappen i.aan{background:var(--gold)}
+.stappen i.klaar{background:var(--ok)}
+.stap{display:none}
+.stap.aan{display:block;animation:opkomen .28s ease}
+@keyframes opkomen{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.stap.aan{animation:none}}
+.stap h2{margin:0 0 6px;font-size:22px;line-height:1.25}
+.stap .uitleg{margin:0 0 22px;color:var(--ink-soft);font-size:14.5px;line-height:1.6;max-width:60ch}
+.veld{margin-bottom:18px}
+.veld input,.veld textarea{font-size:15px;padding:11px 13px}
+.veld textarea{min-height:84px;resize:vertical;font-family:inherit;line-height:1.5}
+.hint{font-size:12px;color:var(--ink-faint);margin-top:6px}
+
+.namen{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
+.namen button{background:var(--panel-2);border:1px solid var(--line-2);border-radius:99px;
+  padding:7px 13px;font-size:13px}
+.namen button:hover{border-color:var(--gold);color:var(--gold)}
+.namen button.nogeens{border-style:dashed;color:var(--ink-faint)}
+
+.groep{margin-bottom:22px}
+.groep h3{margin:0 0 3px;font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.11em;
+  text-transform:uppercase;color:var(--ink-faint);font-weight:400}
+.groep p{margin:0 0 11px;font-size:12.5px;color:var(--ink-faint)}
+.kaarten{display:grid;grid-template-columns:1fr;gap:8px}
+@media (min-width:620px){.kaarten{grid-template-columns:1fr 1fr}}
+.kies{display:flex;gap:11px;align-items:flex-start;text-align:left;width:100%;
+  background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--line);
+  border-radius:4px;padding:12px 13px;color:var(--ink)}
+.kies:hover{border-color:var(--line-2)}
+.kies[aria-pressed="true"]{border-color:var(--gold);border-left-color:var(--gold);background:var(--panel-2)}
+.kies[disabled]{opacity:.55;cursor:default;border-left-color:var(--ok)}
+.kies .vink{width:17px;height:17px;border-radius:3px;border:1.5px solid var(--line-2);flex:none;
+  display:grid;place-items:center;font-size:11px;margin-top:1px}
+.kies[aria-pressed="true"] .vink{background:var(--gold);border-color:var(--gold);color:#141C2E}
+.kies[disabled] .vink{background:var(--ok);border-color:var(--ok);color:#0B1220}
+.kies b{display:block;font-size:14px;font-weight:500;margin-bottom:3px}
+.kies span{display:block;font-size:12.5px;color:var(--ink-soft);line-height:1.5}
+.kies em{display:block;font-style:normal;font-family:"IBM Plex Mono",monospace;font-size:10px;
+  color:var(--ink-faint);margin-top:6px;letter-spacing:.05em}
+
+.knoppen{display:flex;gap:9px;align-items:center;margin-top:26px;
+  border-top:1px solid var(--line);padding-top:18px}
+.knoppen .rechts{margin-left:auto;display:flex;gap:9px}
+.knoppen button{padding:10px 18px;font-size:14px}
+.telling{font-size:12.5px;color:var(--ink-faint)}
+
+.klaarlijst{display:flex;flex-direction:column;gap:7px;margin:16px 0 0}
+.klaarlijst div{display:flex;gap:10px;align-items:center;font-family:"IBM Plex Mono",monospace;
+  font-size:12.5px;color:var(--ink-soft)}
+.klaarlijst .v{color:var(--ok)}
+.foutje{color:var(--wait);font-size:13px;margin-top:10px}
+</style>
+</head>
+<body>
+<div class="wizard">
+  <header class="hdr" style="margin-bottom:20px">
+    <div><h1 class="pix">OPZETTEN</h1>
+      <p class="sub">Vier stappen. Aan het eind staan je agents als bestanden in deze workspace
+        en kun je ze aan het werk zetten.</p></div>
+  </header>
+
+  <div class="stappen"><i class="aan"></i><i></i><i></i><i></i></div>
+
+  <section class="stap aan" data-stap="0">
+    <h2>Wie ben jij?</h2>
+    <p class="uitleg">Je naam komt in de agents terecht, zodat ze weten wie ze aanspreken en wie
+      beslist. Verder gaat hij nergens heen: hij blijft in <code>bedrijf.json</code> op je eigen server.</p>
+    <div class="veld">
+      <label for="fOperator">Je naam</label>
+      <input id="fOperator" placeholder="Koen" autocomplete="given-name" autofocus>
+    </div>
+  </section>
+
+  <section class="stap" data-stap="1">
+    <h2>Hoe heet je bedrijf?</h2>
+    <p class="uitleg">Weet je het nog niet? Kies er een uit de suggesties — je kunt hem later
+      gewoon veranderen, het is maar een naam in een bestand.</p>
+    <div class="veld">
+      <label for="fBedrijf">Bedrijfsnaam</label>
+      <input id="fBedrijf" placeholder="PixelForge" autocomplete="organization">
+      <div class="namen" id="namen"></div>
+    </div>
+    <div class="veld">
+      <label for="fWat">Wat doen jullie? Eén zin.</label>
+      <textarea id="fWat" placeholder="Nog niet zeker — dat is precies wat de agents gaan uitzoeken."></textarea>
+      <div class="hint">Mag leeg blijven. Je bent aan het valideren, niet aan het pitchen.</div>
+    </div>
+  </section>
+
+  <section class="stap" data-stap="2">
+    <h2>Welke agents heb je nodig?</h2>
+    <p class="uitleg">Elke agent wordt een bestand in <code>.claude/agents/</code> plus een
+      capaciteit in <code>workflows/capabilities/</code>. Begin klein: drie is genoeg om te zien
+      of het werkt. Je kunt er altijd bij zetten.</p>
+    <div id="catalogus"></div>
+  </section>
+
+  <section class="stap" data-stap="3">
+    <h2 id="klaarKop">Klaar</h2>
+    <p class="uitleg" id="klaarTekst"></p>
+    <div class="klaarlijst" id="klaarLijst"></div>
+    <div class="foutje" id="foutje" hidden></div>
+  </section>
+
+  <div class="knoppen">
+    <button id="terug" class="quiet">← Terug</button>
+    <span class="telling" id="telling"></span>
+    <div class="rechts">
+      <button id="verder" class="primary">Verder →</button>
+      <a class="knop" id="naarHub" href="/" hidden style="display:none">Naar de hub →</a>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s==null?"":s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let stap = 0, catalogus = [], bestaande = [], gekozen = new Set();
+
+/* ---- namen ---- */
+async function verversNamen(){
+  const r = await fetch("/api/namen?zaad=" + Date.now());
+  const d = await r.json();
+  $("namen").innerHTML = d.namen.map(n => '<button data-naam="' + esc(n) + '">' + esc(n) + '</button>').join("")
+    + '<button class="nogeens" id="nogeens">nog eens ↻</button>';
+}
+$("namen").addEventListener("click", e => {
+  const b = e.target.closest("button"); if(!b) return;
+  if(b.id === "nogeens"){ verversNamen(); return; }
+  $("fBedrijf").value = b.dataset.naam;
+});
+
+/* ---- catalogus ---- */
+const FASES = [
+  { id:"valideren", kop:"Valideren", uit:"Uitzoeken of er een markt en een klant is. Hier begin je." },
+  { id:"bouwen",    kop:"Bouwen",    uit:"Pas nuttig als je weet wat je verkoopt." },
+  { id:"runnen",    kop:"Runnen",    uit:"Voor als er klanten en werk zijn." }
+];
+async function laadCatalogus(){
+  const d = await (await fetch("/api/catalogus")).json();
+  catalogus = d.catalogus; bestaande = d.bestaande || [];
+  if(d.bedrijf){
+    $("fOperator").value = d.bedrijf.operator || "";
+    $("fBedrijf").value = (d.bedrijf.bedrijf||{}).naam || "";
+    $("fWat").value = (d.bedrijf.bedrijf||{}).wat || "";
+  }
+  catalogus.filter(a => a.fase === "valideren" && !bestaande.includes(a.id))
+           .forEach(a => gekozen.add(a.id));
+  $("catalogus").innerHTML = FASES.map(f => {
+    const rij = catalogus.filter(a => a.fase === f.id);
+    if(!rij.length) return "";
+    return '<div class="groep"><h3>' + f.kop + '</h3><p>' + f.uit + '</p><div class="kaarten">'
+      + rij.map(a => {
+          const er = bestaande.includes(a.id);
+          return '<button class="kies" data-id="' + a.id + '"'
+            + (er ? ' disabled' : '') + ' aria-pressed="' + (er || gekozen.has(a.id)) + '">'
+            + '<span class="vink">' + (er ? "✓" : "") + '</span>'
+            + '<span><b>' + esc(a.naam) + '</b><span>' + esc(a.kort) + '</span>'
+            + '<em>' + esc(a.afdeling) + (er ? " · staat er al" : "") + '</em></span></button>';
+        }).join("")
+      + '</div></div>';
+  }).join("");
+  telling();
+}
+$("catalogus").addEventListener("click", e => {
+  const b = e.target.closest(".kies"); if(!b || b.disabled) return;
+  const id = b.dataset.id;
+  if(gekozen.has(id)) gekozen.delete(id); else gekozen.add(id);
+  b.setAttribute("aria-pressed", gekozen.has(id));
+  telling();
+});
+function telling(){
+  $("telling").textContent = stap === 2
+    ? gekozen.size + (gekozen.size === 1 ? " agent gekozen" : " agents gekozen") : "";
+}
+
+/* ---- stappen ---- */
+function toon(n){
+  stap = n;
+  document.querySelectorAll(".stap").forEach(s => s.classList.toggle("aan", +s.dataset.stap === n));
+  document.querySelectorAll(".stappen i").forEach((i, k) => {
+    i.className = k < n ? "klaar" : (k === n ? "aan" : "");
+  });
+  $("terug").style.visibility = n === 0 ? "hidden" : "visible";
+  $("verder").textContent = n === 2 ? "Aanmaken →" : "Verder →";
+  $("verder").hidden = n === 3;
+  telling();
+  scrollTo({ top: 0, behavior: "smooth" });
+}
+$("terug").onclick = () => toon(Math.max(0, stap - 1));
+$("verder").onclick = async () => {
+  if(stap === 0){
+    if(!$("fOperator").value.trim()){ $("fOperator").focus(); return; }
+    toon(1); if(!$("namen").children.length) verversNamen(); return;
+  }
+  if(stap === 1){
+    if(!$("fBedrijf").value.trim()){ $("fBedrijf").focus(); return; }
+    toon(2); return;
+  }
+  if(stap === 2){
+    $("verder").disabled = true; $("verder").textContent = "Bezig…";
+    try{
+      const r = await fetch("/api/onboarding", {
+        method:"POST", headers:{"content-type":"application/json"},
+        body: JSON.stringify({
+          operator: $("fOperator").value.trim(),
+          bedrijf: $("fBedrijf").value.trim(),
+          wat: $("fWat").value.trim(),
+          agents: [...gekozen]
+        })
+      });
+      const d = await r.json();
+      if(d.error) throw new Error(d.error);
+      klaar(d);
+    }catch(err){
+      $("verder").disabled = false; $("verder").textContent = "Aanmaken →";
+      $("foutje").hidden = false;
+      $("foutje").textContent = "Aanmaken mislukt: " + err.message;
+      toon(3);
+    }
+  }
+};
+
+function klaar(d){
+  toon(3);
+  $("klaarKop").textContent = d.bedrijf.bedrijf.naam + " staat klaar";
+  const n = d.gemaakt.length;
+  $("klaarTekst").innerHTML = n
+    ? "Er " + (n === 1 ? "is " : "zijn ") + "<b>" + n + "</b> agent" + (n === 1 ? "" : "s")
+      + " aangemaakt als bestand. Je kunt ze nu openen in een editor, of ze in de hub aan het werk zetten."
+    : "Er zijn geen nieuwe agents aangemaakt — die je koos stonden er al.";
+  $("klaarLijst").innerHTML = d.gemaakt.map(id =>
+      '<div><span class="v">✓</span> .claude/agents/' + esc(id) + '.md</div>'
+      + '<div><span class="v">✓</span> workflows/capabilities/' + esc(id) + '.md</div>').join("")
+    + d.overgeslagen.map(id =>
+      '<div><span style="color:var(--ink-faint)">·</span> ' + esc(id) + ' stond er al, ongemoeid gelaten</div>').join("")
+    + '<div><span class="v">✓</span> bedrijf.json</div>';
+  $("naarHub").hidden = false;
+  $("naarHub").style.display = "";
+}
+
+laadCatalogus();
+</script>
+</body>
+</html>

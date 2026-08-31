@@ -15,6 +15,16 @@ pogingen en het adres zit een minuut op slot.
 Dat is genoeg voor een privédashboard. Het is geen bankbeveiliging: zet er geen
 klantgegevens of wachtwoorden in.
 
+Wil je er even snel bij zonder wachtwoord, zet dan `GEEN_SLOT=1`:
+
+```bash
+HOST=0.0.0.0 GEEN_SLOT=1 node hub/server.mjs
+```
+
+Doe dat alleen om iets te bekijken. Zolang die vlag aan staat kan iedereen die
+je IP kent je bestanden lezen, je API-sleutels bekijken en agents laten draaien
+op jouw rekening. Laat hem niet aan staan.
+
 ## Route 1 — Tailscale, zonder open poorten (het veiligst)
 
 Als je geen domeinnaam hebt, is dit beter dan een poort openzetten. Je server en

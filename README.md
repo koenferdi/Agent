@@ -46,9 +46,11 @@ Dat tik je in op je telefoon.
 > en aanpassen. Doe dit thuis, niet op openbare wifi. De gewone starter houdt
 > hem afgeschermd op je eigen computer.
 
-Op een klein scherm verandert de weergave: de wolkjes verdwijnen en de status
-van elke agent komt als lijst onder de kaart te staan. Tikken werkt hetzelfde
-als klikken.
+Op een telefoon werkt de vloer met je vingers: slepen om rond te kijken,
+knijpen om te zoomen, tikken om een agent te kiezen. Onder de vloer staat de
+status van elke agent ook als lijst. Wil je alleen de vloer, zonder de panelen
+eromheen, open dan `/vloer.html` — of zet de hub op je beginscherm, dan start
+hij als app zonder browserbalk.
 
 Staat je computer uit, dan is de hub niet bereikbaar — het is een lokale server,
 geen website. Wil je iets kunnen bekijken zonder dat je computer aanstaat, zeg

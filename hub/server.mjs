@@ -9,6 +9,11 @@ import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
 import { platform, networkInterfaces } from "node:os";
 import { randomBytes, timingSafeEqual, createHash } from "node:crypto";
+import { CATALOGUS, namen, maakAgents, bestaande } from "./agentfabriek.mjs";
+import { AANBIEDERS, overzicht as sleutelOverzicht, zet as zetSleutel } from "./sleutels.mjs";
+import { lijst as modellenLijst, standaard as standaardModel, bruikbareAanbieders } from "./modellen.mjs";
+import { draai, runs as leesRuns } from "./runner.mjs";
+import { status as gereedschapStatus } from "./gereedschap.mjs";
 
 const NODE_MAJOR = Number(process.versions.node.split(".")[0]);
 if (NODE_MAJOR < 18) {
@@ -21,6 +26,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..");
 const PUBLIC = join(HERE, "public");
 const DESK = join(HERE, "desk.json");
+const BEDRIJF = join(ROOT, "bedrijf.json");
 const PORT = Number(process.env.PORT || 4317);
 // Standaard alleen bereikbaar op deze computer. HOST=0.0.0.0 stelt hem open
 // voor andere apparaten op hetzelfde wifi-netwerk (zie "npm run mobiel").
@@ -40,14 +46,18 @@ function friendlyPassword(){
     .map(b => abc[b % abc.length]).join("");
   return `${pick(4)}-${pick(4)}-${pick(4)}`;
 }
-if (OPEN_TO_NETWORK && !PASSWORD) {
+// GEEN_SLOT=1 zet het wachtwoord uit, ook als de hub open staat. Bedoeld om
+// snel iets te bekijken. Iedereen die het adres kent kan dan bij je bestanden,
+// je sleutels en de knop die agents laat draaien — dus niet laten staan.
+const GEEN_SLOT = process.env.GEEN_SLOT === "1" || process.env.HUB_NO_AUTH === "1";
+if (OPEN_TO_NETWORK && !PASSWORD && !GEEN_SLOT) {
   PASSWORD = friendlyPassword();
   GENERATED = true;
 }
 // Beveiliging aan zodra de hub buiten deze computer bereikbaar is, EN altijd
 // wanneer er een wachtwoord is gezet — anders staat hij open achter een
 // reverse proxy die zelf wel vanaf het internet bereikbaar is.
-const AUTH_ON = OPEN_TO_NETWORK || !!process.env.HUB_PASSWORD;
+const AUTH_ON = !GEEN_SLOT && (OPEN_TO_NETWORK || !!process.env.HUB_PASSWORD);
 const sessions = new Set();
 const failures = new Map();        // ip -> { n, until }
 
@@ -120,7 +130,8 @@ function lanAddress(){
 }
 
 const MIME = { ".html":"text/html; charset=utf-8", ".js":"text/javascript; charset=utf-8",
-  ".css":"text/css; charset=utf-8", ".json":"application/json; charset=utf-8",
+  ".mjs":"text/javascript; charset=utf-8", ".css":"text/css; charset=utf-8",
+  ".json":"application/json; charset=utf-8", ".webmanifest":"application/manifest+json; charset=utf-8",
   ".svg":"image/svg+xml", ".png":"image/png", ".ico":"image/x-icon" };
 
 /* ---------- lezen van de echte workspace ---------- */
@@ -228,6 +239,13 @@ async function readDrafts(){
   return out;
 }
 
+// bedrijf.json: wie jij bent en hoe je bedrijf heet. Staat buiten git.
+async function readBedrijf(){
+  if(!existsSync(BEDRIJF)) return null;
+  try { return JSON.parse(await readFile(BEDRIJF,"utf8")); }
+  catch { return null; }
+}
+
 async function readDesk(){
   if(!existsSync(DESK)) return { briefs: [], decisions: [] };
   try { return JSON.parse(await readFile(DESK,"utf8")); }
@@ -269,9 +287,93 @@ const server = createServer(async (req,res)=>{
       }
     }
     if(url.pathname === "/api/state"){
-      const [agents, drafts, desk, capabilities] = await Promise.all(
-        [readAgents(), readDrafts(), readDesk(), readCapabilities()]);
-      return send(res,200,JSON.stringify({ agents, drafts, desk, capabilities, root: ROOT }));
+      const [agents, drafts, desk, capabilities, bedrijf] = await Promise.all(
+        [readAgents(), readDrafts(), readDesk(), readCapabilities(), readBedrijf()]);
+      return send(res,200,JSON.stringify({ agents, drafts, desk, capabilities, bedrijf, root: ROOT }));
+    }
+
+    // ---------- modellen en sleutels ----------
+    if(url.pathname === "/api/modellen"){
+      const l = await modellenLijst(ROOT, url.searchParams.get("ververs") === "1");
+      const bruikbaar = await bruikbareAanbieders(ROOT);
+      return send(res,200,JSON.stringify({
+        modellen: l.modellen.map(m => ({ ...m, bruikbaar: bruikbaar.has(m.aanbieder) })),
+        bron: l.bron, problemen: l.problemen || [],
+        opgehaald: new Date(l.tijd).toISOString(),
+        standaard: standaardModel(l.modellen, bruikbaar).id,
+        sleutels: await sleutelOverzicht(ROOT)
+      }));
+    }
+    if(url.pathname === "/api/sleutel" && req.method === "POST"){
+      let body=""; for await (const c of req){ body += c; if(body.length > 20_000) break; }
+      const g = JSON.parse(body || "{}");
+      if(!AANBIEDERS.some(a => a.id === g.aanbieder)) return send(res,400,'{"error":"onbekende aanbieder"}');
+      await zetSleutel(ROOT, g.aanbieder, g.sleutel || "");
+      await modellenLijst(ROOT, true);   // meteen opnieuw ophalen met de nieuwe sleutel
+      return send(res,200,JSON.stringify({ ok:true, sleutels: await sleutelOverzicht(ROOT) }));
+    }
+    if(url.pathname === "/api/gereedschap"){
+      return send(res,200,JSON.stringify({ gereedschap: await gereedschapStatus(ROOT) }));
+    }
+    if(url.pathname === "/api/runs"){
+      return send(res,200,JSON.stringify({ runs: await leesRuns(ROOT) }));
+    }
+
+    // ---------- een agent laten draaien ----------
+    if(url.pathname === "/api/run" && req.method === "POST"){
+      let body=""; for await (const c of req){ body += c; if(body.length > 100_000) break; }
+      const g = JSON.parse(body || "{}");
+      const agentId = String(g.agent || "").replace(/[^a-z0-9-]/gi,"");
+      const opdracht = String(g.opdracht || "").trim();
+      if(!agentId || !opdracht) return send(res,400,'{"error":"agent en opdracht zijn nodig"}');
+
+      res.writeHead(200, {
+        "content-type": "text/event-stream; charset=utf-8",
+        "cache-control": "no-store",
+        "connection": "keep-alive",
+        "x-accel-buffering": "no"       // caddy en nginx moeten niet bufferen
+      });
+      const stuur = (o) => { try { res.write("data: " + JSON.stringify(o) + "\n\n"); } catch {} };
+      const stop = new AbortController();
+      req.on("close", () => stop.abort());
+      try {
+        await draai({ root: ROOT, agentId, opdracht, modelId: g.model,
+                      stap: stuur, signal: stop.signal });
+      } catch (e){
+        stuur({ soort:"fout", tekst: String(e && e.message || e) });
+      }
+      return res.end();
+    }
+
+    // ---------- onboarding ----------
+    if(url.pathname === "/api/catalogus"){
+      return send(res,200,JSON.stringify({
+        catalogus: CATALOGUS,
+        bestaande: await bestaande(ROOT),
+        bedrijf: await readBedrijf()
+      }));
+    }
+    if(url.pathname === "/api/namen"){
+      const zaad = Number(url.searchParams.get("zaad")) || Date.now();
+      return send(res,200,JSON.stringify({ namen: namen(zaad, 6) }));
+    }
+    if(url.pathname === "/api/onboarding" && req.method === "POST"){
+      let body=""; for await (const c of req){ body += c; if(body.length > 200_000) break; }
+      const g = JSON.parse(body || "{}");
+      const operator = String(g.operator || "").trim().slice(0,80);
+      const naam = String(g.bedrijf || "").trim().slice(0,80);
+      if(!operator || !naam) return send(res,400,'{"error":"naam en bedrijfsnaam zijn nodig"}');
+      const gekozen = Array.isArray(g.agents) ? g.agents.filter(x => CATALOGUS.some(c => c.id === x)) : [];
+      const uit = await maakAgents(ROOT, gekozen, naam);
+      const bedrijf = {
+        operator,
+        bedrijf: { naam, wat: String(g.wat || "").trim().slice(0,400), fase: g.fase || "valideren" },
+        agents: gekozen,
+        aangemaakt: (await readBedrijf())?.aangemaakt || new Date().toISOString(),
+        bijgewerkt: new Date().toISOString()
+      };
+      await writeFile(BEDRIJF, JSON.stringify(bedrijf,null,2)+"\n");
+      return send(res,200,JSON.stringify({ ok:true, bedrijf, ...uit }));
     }
     if(url.pathname === "/api/desk" && req.method === "POST"){
       let body=""; for await (const c of req) body += c;
@@ -279,6 +381,17 @@ const server = createServer(async (req,res)=>{
       const parsed = JSON.parse(body);
       await writeFile(DESK, JSON.stringify(parsed,null,2)+"\n");
       return send(res,200,'{"ok":true}');
+    }
+    // een agent- of capaciteitsbestand teruglezen, zodat je in de hub kunt zien
+    // wat er echt in staat zonder een editor te openen
+    if(url.pathname === "/api/bestand"){
+      const f = url.searchParams.get("f") || "";
+      const toegestaan = /^(\.claude\/agents|workflows\/capabilities)\/[a-z0-9-]+\.md$/.test(f);
+      if(!toegestaan) return send(res,400,'{"error":"dit bestand mag je hier niet lezen"}');
+      const p2 = join(ROOT, f);
+      if(!p2.startsWith(ROOT)) return send(res,400,'{"error":"pad geweigerd"}');
+      if(!existsSync(p2)) return send(res,404,'{"error":"niet gevonden"}');
+      return send(res,200,JSON.stringify({ file:f, content: await readFile(p2,"utf8") }));
     }
     if(url.pathname === "/api/draft"){
       const f = url.searchParams.get("f")||"";
@@ -304,8 +417,13 @@ function openBrowser(url){
             : platform() === "win32"  ? "cmd"
             : "xdg-open";
   const args = platform() === "win32" ? ["/c", "start", "", url] : [url];
-  try { spawn(cmd, args, { stdio: "ignore", detached: true }).unref(); }
-  catch { /* geen browser? de URL staat hieronder */ }
+  try {
+    const kind = spawn(cmd, args, { stdio: "ignore", detached: true });
+    /* op een server zonder xdg-open komt de fout pas ná spawn binnen; zonder
+     * deze regel valt de hele hub om op een machine zonder browser */
+    kind.on("error", () => {});
+    kind.unref();
+  } catch { /* geen browser? de URL staat hieronder */ }
 }
 
 function banner(port){
@@ -338,6 +456,12 @@ function banner(port){
     console.log("");
     console.log("  De hub is buiten deze computer bereikbaar. Draai je dit op een");
     console.log("  server aan het internet, zet er dan HTTPS voor (zie deploy/).");
+  } else if (OPEN_TO_NETWORK){
+    console.log("");
+    console.log("  ZONDER SLOT. Iedereen die dit adres kent kan je bestanden lezen,");
+    console.log("  je sleutels bekijken en agents laten draaien op jouw rekening.");
+    console.log("  Alleen doen om even te kijken. Zet het slot er weer op door");
+    console.log("  GEEN_SLOT weg te laten.");
   }
   console.log(`\n  Workspace: ${ROOT}\n`);
 }
