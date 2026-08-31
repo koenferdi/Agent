@@ -46,14 +46,18 @@ function friendlyPassword(){
     .map(b => abc[b % abc.length]).join("");
   return `${pick(4)}-${pick(4)}-${pick(4)}`;
 }
-if (OPEN_TO_NETWORK && !PASSWORD) {
+// GEEN_SLOT=1 zet het wachtwoord uit, ook als de hub open staat. Bedoeld om
+// snel iets te bekijken. Iedereen die het adres kent kan dan bij je bestanden,
+// je sleutels en de knop die agents laat draaien — dus niet laten staan.
+const GEEN_SLOT = process.env.GEEN_SLOT === "1" || process.env.HUB_NO_AUTH === "1";
+if (OPEN_TO_NETWORK && !PASSWORD && !GEEN_SLOT) {
   PASSWORD = friendlyPassword();
   GENERATED = true;
 }
 // Beveiliging aan zodra de hub buiten deze computer bereikbaar is, EN altijd
 // wanneer er een wachtwoord is gezet — anders staat hij open achter een
 // reverse proxy die zelf wel vanaf het internet bereikbaar is.
-const AUTH_ON = OPEN_TO_NETWORK || !!process.env.HUB_PASSWORD;
+const AUTH_ON = !GEEN_SLOT && (OPEN_TO_NETWORK || !!process.env.HUB_PASSWORD);
 const sessions = new Set();
 const failures = new Map();        // ip -> { n, until }
 
@@ -452,6 +456,12 @@ function banner(port){
     console.log("");
     console.log("  De hub is buiten deze computer bereikbaar. Draai je dit op een");
     console.log("  server aan het internet, zet er dan HTTPS voor (zie deploy/).");
+  } else if (OPEN_TO_NETWORK){
+    console.log("");
+    console.log("  ZONDER SLOT. Iedereen die dit adres kent kan je bestanden lezen,");
+    console.log("  je sleutels bekijken en agents laten draaien op jouw rekening.");
+    console.log("  Alleen doen om even te kijken. Zet het slot er weer op door");
+    console.log("  GEEN_SLOT weg te laten.");
   }
   console.log(`\n  Workspace: ${ROOT}\n`);
 }
