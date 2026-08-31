@@ -58,7 +58,19 @@ a{color:var(--gold)}
   background:rgba(21,31,53,.9);border:1px solid var(--line-2);color:var(--ink-faint);
   border-radius:99px;padding:7px 12px;backdrop-filter:blur(6px)}
 
-.melding{position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));
+.ticker{position:fixed;left:0;right:0;bottom:0;height:26px;z-index:3;overflow:hidden;
+  background:linear-gradient(180deg,rgba(11,18,32,0),rgba(11,18,32,.94) 40%);
+  border-top:1px solid rgba(56,73,107,.5);display:flex;align-items:center;
+  padding-bottom:env(safe-area-inset-bottom)}
+.ticker .baan{display:flex;white-space:nowrap;animation:schuif 64s linear infinite}
+.ticker i{display:inline-flex;align-items:center;gap:7px;padding:0 18px;font-style:normal;
+  font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--ink-faint)}
+.ticker i b{color:var(--ink-soft);font-weight:500}
+.ticker i s{width:5px;height:5px;border-radius:50%;text-decoration:none;flex:none}
+@keyframes schuif{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@media (prefers-reduced-motion:reduce){ .ticker .baan{animation:none} }
+
+.melding{position:fixed;left:12px;right:12px;bottom:calc(34px + env(safe-area-inset-bottom));
   z-index:2;pointer-events:none}
 .kaart{position:absolute;left:0;right:0;bottom:0}
 .label{margin:0;background:rgba(11,18,32,.84);border:1px solid var(--line);
@@ -150,6 +162,7 @@ import { AGENT_COLOR, THEME } from "/iso/iso-theme.js";
 import { ZONES } from "/iso/iso-map.js";
 
 const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 let S = { agents:[], drafts:[], desk:{briefs:[],decisions:[]} };
 let sel = null, demo = false;
 
@@ -188,6 +201,28 @@ function openKaart(id){
   $("kaart").classList.add("open");
 }
 
+function ticker(){
+  const items = [];
+  (S.drafts||[]).forEach(d => {
+    const v = d.meta && d.meta.verdict ? " · " + d.meta.verdict : "";
+    items.push({ k:"var(--ok)", t:"RAPPORT <b>" + esc(d.title) + "</b>" + esc(v) });
+  });
+  (S.desk.decisions||[]).filter(d => !d.resolved).forEach(d =>
+    items.push({ k:"var(--wait)", t:"AAN JOU <b>" + esc(d.question) + "</b>" }));
+  (S.desk.briefs||[]).forEach(b => {
+    const m = metaVan(b.agent);
+    items.push({ k:"var(--busy)", t:esc(m.no + " " + m.naam) + " <b>" + esc(b.topic) + "</b> · " + esc(b.status) });
+  });
+  (S.capabilities||[]).filter(c => !c.done_by).forEach(c =>
+    items.push({ k:"var(--idle)", t:"NOG GEEN AGENT <b>" + esc(c.title) + "</b>" }));
+  if (!items.length) items.push({ k:"var(--idle)", t:"Nog niets te melden." });
+  const rij = items.map(i => '<i><s style="background:' + i.k + '"></s>' + i.t + '</i>').join("");
+  if ($("ticker").dataset.inhoud !== rij){
+    $("ticker").innerHTML = '<div class="baan">' + rij + rij + '</div>';
+    $("ticker").dataset.inhoud = rij;
+  }
+}
+
 function hud(){
   const werk = S.agents.filter(a => { const st = statusVanAgent(S, a.id); return st === "opgepakt" || st === "nieuw"; }).length;
   const open = (S.desk.briefs || []).filter(b => b.status === "nieuw" || b.status === "opgepakt").length;
@@ -207,7 +242,7 @@ async function lees(){
     S = await r.json();
     if(!S.desk) S.desk = { briefs:[], decisions:[] };
     vloer.sync(S);
-    hud();
+    hud(); ticker();
     if(sel) openKaart(sel);
   } catch(e){ /* server even weg; de vloer blijft staan */ }
 }

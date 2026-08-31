@@ -16,7 +16,7 @@
  *                 Alles wat hieruit komt krijgt soort "demo".
  */
 import { THEME, STATUS_COLOR } from "./iso-theme.js";
-import { TILE, GRID, DESKS, ZONES, SPOTS, LAMPEN, stoelVan, parkeerVan, bureausVan, buildMap, vrij, zoneOp, zoneVan } from "./iso-map.js";
+import { TILE, GRID, DESKS, ZONES, SPOTS, LAMPEN, KABELS, stoelVan, parkeerVan, bureausVan, buildMap, vrij, zoneOp, zoneVan } from "./iso-map.js";
 
 /* Behoeften. Alleen actief in rondloopmodus. */
 export const NEEDS = {
@@ -69,6 +69,13 @@ export class IsoOffice {
     this.t = 0; this._prev = 0;
     this.reduced = typeof matchMedia !== "undefined"
       && matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    /* Halve-resolutie buffer voor de gloed. Alles wat licht geeft wordt hier
+     * ook op getekend; aan het eind gaat hij vervaagd en optellend over het
+     * beeld heen. Dat is wat een vloer van matte dozen in neon verandert. */
+    this.glCv = document.createElement("canvas");
+    this.glCtx = this.glCv.getContext("2d");
+    this.glSchaal = .5;
 
     this.cam = { x:0, y:0, zoom:1, tx:0, ty:0 };
     this._bind();
@@ -513,7 +520,7 @@ export class IsoOffice {
   _pinchD(t){ return Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY); }
 
   _raakAgent(p){
-    let best = null, bestD = 30 * this.cam.zoom;
+    let best = null, bestD = 34 * this.cam.zoom;
     for (const a of this.agents){
       const s = this._naarScherm(a.x, a.y);
       const d = Math.hypot(p.x - s.x, p.y - (s.y - 20*this.cam.zoom));
@@ -528,6 +535,10 @@ export class IsoOffice {
     this.cv.width  = Math.round(w*dpr);
     this.cv.height = Math.round(h*dpr);
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (this.glCv){
+      this.glCv.width  = Math.max(1, Math.round(w*this.glSchaal));
+      this.glCv.height = Math.max(1, Math.round(h*this.glSchaal));
+    }
   }
 
   /* ===================== lus ===================== */
@@ -548,8 +559,12 @@ export class IsoOffice {
     c.clearRect(0,0,W,H);
     c.fillStyle = T.bg; c.fillRect(0,0,W,H);
     c.textAlign = "center"; c.textBaseline = "middle";
+    this.glCtx.clearRect(0, 0, this.glCv.width, this.glCv.height);
 
     for (const t of this.tiles) this._tegel(t);
+    for (const zn of ZONES) this._vloernaam(zn);
+    for (const zn of ZONES) this._kamerrand(zn);
+    this._kabels();
 
     if (this.mikpunt) this._tegelRand(this.mikpunt.x, this.mikpunt.y, T.gold);
     else if (this.hover && vrij(this.solid, this.hover.x, this.hover.y))
@@ -559,11 +574,12 @@ export class IsoOffice {
     c.save(); c.globalCompositeOperation = "lighter";
     LAMPEN.forEach((l, i) => {
       const s = this._naarScherm(l.x, l.y), r = l.r*z;
-      const fel = this.werkendeBureaus && this.werkendeBureaus[i] ? .19 : .08;
+      const werkt = this.werkendeBureaus && this.werkendeBureaus[i];
       const g = c.createRadialGradient(s.x, s.y, 0, s.x, s.y, r);
-      g.addColorStop(0, "rgba(120,160,255," + fel + ")");
+      g.addColorStop(0, "rgba(120,160,255," + (werkt ? .2 : .075) + ")");
       g.addColorStop(1, "rgba(120,160,255,0)");
       c.fillStyle = g; c.beginPath(); c.arc(s.x, s.y, r, 0, 7); c.fill();
+      this._lichtBol(s.x, s.y - 30*z, (werkt ? 15 : 8)*z, werkt ? "#8FB6FF" : "#4E6DA8", werkt ? .5 : .22);
     });
     c.restore();
 
@@ -573,14 +589,135 @@ export class IsoOffice {
     for (const a of this.agents) lijst.push({ d: a.x + a.y + .4,     f: () => this._agent(a) });
     lijst.sort((a,b) => a.d - b.d);
     for (const it of lijst) it.f();
-    for (const a of this.agents) this._agentLabel(a);
 
+    this._stof();
+    this._gloedOver();
+
+    /* labels en plaatjes staan bóven de gloed: die moeten scherp blijven */
+    for (const a of this.agents) this._agentLabel(a);
     for (const zn of ZONES) this._ruimtelabel(zn);
     for (const f of this.floaters) this._floater(f);
 
-    const v = c.createRadialGradient(W/2, H/2, Math.min(W,H)*.4, W/2, H/2, Math.max(W,H)*.8);
-    v.addColorStop(0, "rgba(0,0,0,0)"); v.addColorStop(1, "rgba(0,0,0,.45)");
+    const v = c.createRadialGradient(W/2, H/2, Math.min(W,H)*.42, W/2, H/2, Math.max(W,H)*.82);
+    v.addColorStop(0, "rgba(0,0,0,0)"); v.addColorStop(1, "rgba(0,0,0,.5)");
     c.fillStyle = v; c.fillRect(0,0,W,H);
+  }
+
+  /* De gloedbuffer vervaagd en optellend over het beeld. Twee keer: één brede
+   * waas en één strakke, dat leest als echt licht in plaats van als mist. */
+  _gloedOver(){
+    const c = this.ctx, W = this.cv.clientWidth, H = this.cv.clientHeight;
+    c.save();
+    c.globalCompositeOperation = "lighter";
+    const kanFilter = typeof c.filter === "string";
+    if (kanFilter) c.filter = "blur(9px)";
+    c.globalAlpha = .55; c.drawImage(this.glCv, 0, 0, W, H);
+    if (kanFilter) c.filter = "blur(2px)";
+    c.globalAlpha = .85; c.drawImage(this.glCv, 0, 0, W, H);
+    if (kanFilter) c.filter = "none";
+    c.restore();
+  }
+
+  /* De afdelingsnaam op de vloer geschilderd, in het vlak van de vloer zelf.
+   * Vult de lege gangen en zegt meteen waar je bent. */
+  _vloernaam(zn){
+    const c = this.ctx, z = this.cam.zoom;
+    if (z < .4) return;
+    const o = this._naarScherm(zn.x0 + .3, zn.y0 + .3);
+    const tekst = zn.label.toUpperCase();
+    const breed = zn.x1 - zn.x0 + 1 - .6;      /* ruimte in tegels */
+    c.save();
+    c.translate(o.x, o.y + TILE.h/2*z);
+    /* basisvectoren van het vloervlak: +x gaat rechtsonder, +y linksonder */
+    c.transform(TILE.w/2*z, TILE.h/2*z, -TILE.w/2*z, TILE.h/2*z, 0, 0);
+    c.textAlign = "left"; c.textBaseline = "top";
+    c.font = '700 100px "IBM Plex Sans",system-ui,sans-serif';
+    const w100 = c.measureText(tekst).width;    /* breedte bij 100px */
+    const k = breed / w100;                     /* zo veel tegels per pixel */
+    c.scale(k, k);
+    c.fillStyle = zn.kleur + "1F";
+    c.fillText(tekst, 0, 0);
+    c.restore();
+    c.textAlign = "center"; c.textBaseline = "middle";
+  }
+
+  /* Neonrand om elke kamer: de vloerrand in de kleur van de afdeling. */
+  _kamerrand(zn){
+    const c = this.ctx, z = this.cam.zoom;
+    const h = { x: zn.x0, y: zn.y0 }, r = { x: zn.x1 + 1, y: zn.y0 };
+    const o = { x: zn.x1 + 1, y: zn.y1 + 1 }, l = { x: zn.x0, y: zn.y1 + 1 };
+    const p = [h, r, o, l].map(t => {
+      const s = this._naarScherm(t.x, t.y);
+      return { x: s.x, y: s.y + TILE.h/2*z };
+    });
+    c.save();
+    c.beginPath();
+    c.moveTo(p[0].x, p[0].y);
+    for (let i = 1; i < 4; i++) c.lineTo(p[i].x, p[i].y);
+    c.closePath();
+    c.strokeStyle = zn.kleur; c.globalAlpha = .5; c.lineWidth = 1.6*z; c.stroke();
+    c.restore();
+    this._lichtPad(p, zn.kleur, 2.4*z, .42);
+  }
+
+  /* Kabelgoten met lopende stipjes: het werk stroomt naar het archief. */
+  _kabels(){
+    const c = this.ctx, z = this.cam.zoom;
+    for (const k of KABELS){
+      const bemand = this.agents.some(a => a.dept === k.dept);
+      const pts = k.punten.map(t => {
+        const s = this._naarScherm(t.x, t.y);
+        return { x: s.x, y: s.y + TILE.h/2*z };
+      });
+      c.save();
+      c.beginPath(); c.moveTo(pts[0].x, pts[0].y);
+      for (let i = 1; i < pts.length; i++) c.lineTo(pts[i].x, pts[i].y);
+      c.strokeStyle = bemand ? "rgba(110,150,220,.4)" : "rgba(90,110,150,.16)";
+      c.lineWidth = 1.4*z; c.lineJoin = c.lineCap = "round"; c.stroke();
+      c.restore();
+      if (!bemand) continue;
+
+      /* lengte per stuk, zodat de stipjes gelijkmatig lopen */
+      const lengtes = [], totaal = pts.reduce((som, p, i) => {
+        if (!i) return 0;
+        const d = Math.hypot(p.x - pts[i-1].x, p.y - pts[i-1].y);
+        lengtes.push(d); return som + d;
+      }, 0);
+      const kleur = (ZONES.find(z2 => z2.name === k.dept) || {}).kleur || this.theme.busy;
+      const aantal = 3;
+      for (let n = 0; n < aantal; n++){
+        let s = ((this.t*0.16 + n/aantal) % 1) * totaal, i = 0;
+        while (i < lengtes.length && s > lengtes[i]){ s -= lengtes[i]; i++; }
+        if (i >= lengtes.length) continue;
+        const a = pts[i], b = pts[i+1], f = lengtes[i] ? s/lengtes[i] : 0;
+        const x = a.x + (b.x - a.x)*f, y = a.y + (b.y - a.y)*f;
+        c.fillStyle = kleur;
+        c.beginPath(); c.arc(x, y, 2.1*z, 0, 7); c.fill();
+        this._lichtBol(x, y, 4.5*z, kleur, .75);
+      }
+    }
+  }
+
+  /* Stofjes in het licht. Houdt het beeld levend als niemand loopt. */
+  _stof(){
+    if (this.reduced) return;
+    const c = this.ctx, z = this.cam.zoom;
+    const W = this.cv.clientWidth, H = this.cv.clientHeight;
+    if (!this._stofjes){
+      this._stofjes = [];
+      for (let i = 0; i < 26; i++)
+        this._stofjes.push({ x: Math.random(), y: Math.random(), s: .2 + Math.random()*.5, f: Math.random()*6.3 });
+    }
+    c.save();
+    c.globalCompositeOperation = "lighter";
+    for (const d of this._stofjes){
+      const x = ((d.x + this.t*0.006*d.s) % 1) * W;
+      const y = ((d.y - this.t*0.004*d.s + 1) % 1) * H;
+      const a = .05 + Math.abs(Math.sin(this.t*.5 + d.f))*.1;
+      c.fillStyle = "rgba(150,185,255," + a.toFixed(3) + ")";
+      c.beginPath(); c.arc(x, y, (.8 + d.s)*Math.max(.7, z), 0, 7); c.fill();
+    }
+    c.restore();
   }
 
   _tegel(t){
@@ -607,43 +744,93 @@ export class IsoOffice {
   }
 
   _ruimtelabel(zn){
-    const c = this.ctx, z = this.cam.zoom;
-    if (z < .45) return;
+    const c = this.ctx, zoom = this.cam.zoom;
+    if (zoom < .42) return;
+    const z = Math.min(zoom, 1);   /* een plaatje blijft leesbaar, het groeit niet mee */
     const s = this._naarScherm((zn.x0 + zn.x1)/2, (zn.y0 + zn.y1)/2);
     const info = this.zoneInfo[zn.name] || "";
-    const naam = zn.emo + "  " + zn.label;
-    c.font = "600 " + (11*z).toFixed(1) + 'px "IBM Plex Sans",system-ui,sans-serif';
-    const wN = c.measureText(naam).width;
-    c.font = (10*z).toFixed(1) + 'px "IBM Plex Mono",ui-monospace,monospace';
-    const wI = info ? c.measureText(info).width + 9*z : 0;
-    const w = wN + wI + 20*z, h = 21*z, x0 = s.x - w/2;
-    c.fillStyle = "rgba(11,18,32,.84)";
-    c.beginPath(); c.roundRect(x0, s.y - h/2, w, h, 99); c.fill();
-    c.strokeStyle = zn.kleur ? zn.kleur + "55" : "rgba(120,160,230,.22)"; c.lineWidth = 1; c.stroke();
+    const naam = zn.label.toUpperCase();
+    const nr = zn.nr || "";
+
+    c.font = '600 ' + (10.5*z).toFixed(1) + 'px "IBM Plex Sans",system-ui,sans-serif';
+    const wNaam = c.measureText(naam).width;
+    c.font = (9.5*z).toFixed(1) + 'px "IBM Plex Mono",ui-monospace,monospace';
+    const wInfo = info ? c.measureText(info).width : 0;
+    const wNr = nr ? 16*z : 0;
+    const pad = 9*z, gat = 8*z;
+    const w = pad + wNr + (nr ? gat : 0) + wNaam + (info ? gat + wInfo : 0) + pad;
+    const h = 22*z, x0 = s.x - w/2, y0 = s.y - h/2;
+
+    c.save();
+    c.fillStyle = "rgba(9,15,28,.9)";
+    c.beginPath(); c.roundRect(x0, y0, w, h, 3*z); c.fill();
+    c.strokeStyle = zn.kleur + "66"; c.lineWidth = 1; c.stroke();
+    /* accentbalkje links, zoals een kaartje aan een deur */
+    c.fillStyle = zn.kleur;
+    c.fillRect(x0, y0, 2.5*z, h);
+    c.restore();
+    this._lichtRect(x0, y0, 2.5*z, h, zn.kleur, .7);
+
+    let x = x0 + pad;
     c.textAlign = "left";
-    c.font = "600 " + (11*z).toFixed(1) + 'px "IBM Plex Sans",system-ui,sans-serif';
-    c.fillStyle = zn.kleur || this.theme.soft;
-    c.fillText(naam, x0 + 10*z, s.y + .5*z);
+    if (nr){
+      c.font = '600 ' + (9*z).toFixed(1) + 'px "IBM Plex Mono",ui-monospace,monospace';
+      c.fillStyle = zn.kleur; c.fillText(nr, x, s.y);
+      x += wNr + gat;
+    }
+    c.font = '600 ' + (10.5*z).toFixed(1) + 'px "IBM Plex Sans",system-ui,sans-serif';
+    c.fillStyle = this.theme.text; c.fillText(naam, x, s.y);
     if (info){
-      c.font = (10*z).toFixed(1) + 'px "IBM Plex Mono",ui-monospace,monospace';
-      c.fillStyle = this.theme.dim;
-      c.fillText(info, x0 + 10*z + wN + 9*z, s.y + .5*z);
+      x += wNaam + gat;
+      c.font = (9.5*z).toFixed(1) + 'px "IBM Plex Mono",ui-monospace,monospace';
+      c.fillStyle = this.theme.dim; c.fillText(info, x, s.y);
     }
     c.textAlign = "center";
   }
 
+  /* Een opstijgend tekstje bij een echte gebeurtenis. */
   _floater(f){
-    const c = this.ctx, z = this.cam.zoom;
+    const c = this.ctx, z = Math.min(this.cam.zoom, 1.2);
     const s = this._naarScherm(f.x, f.y);
     const op = f.t < .25 ? f.t/.25 : clamp(1 - (f.t - .25)/2.1, 0, 1);
     const y = s.y - 34*z - f.t*22*z;
     c.save();
     c.globalAlpha = op;
-    c.font = "700 " + (11*z).toFixed(1) + 'px "IBM Plex Mono",ui-monospace,monospace';
-    c.lineWidth = 3*z; c.strokeStyle = "rgba(11,18,32,.85)";
+    c.font = "700 " + (11.5*z).toFixed(1) + 'px "IBM Plex Mono",ui-monospace,monospace';
+    c.lineWidth = 3.5*z; c.strokeStyle = "rgba(9,15,28,.9)";
     c.strokeText(f.tekst, s.x, y);
     c.fillStyle = f.kleur; c.fillText(f.tekst, s.x, y);
     c.restore();
+    this._lichtBol(s.x, y, 16*z, f.kleur, op*.5);
+  }
+
+  /* ---- licht ----
+   * Deze drie tekenen alleen op de gloedbuffer. Scherm- en bufferpixels
+   * verschillen een factor glSchaal, vandaar het schalen hier. */
+  _lichtRect(x, y, w, h, kleur, sterkte){
+    const g = this.glCtx, k = this.glSchaal;
+    g.globalAlpha = sterkte == null ? 1 : sterkte;
+    g.fillStyle = kleur;
+    g.fillRect(x*k, y*k, Math.max(1, w*k), Math.max(1, h*k));
+    g.globalAlpha = 1;
+  }
+  _lichtBol(x, y, r, kleur, sterkte){
+    const g = this.glCtx, k = this.glSchaal;
+    g.globalAlpha = sterkte == null ? 1 : sterkte;
+    g.fillStyle = kleur;
+    g.beginPath(); g.arc(x*k, y*k, Math.max(.6, r*k), 0, 7); g.fill();
+    g.globalAlpha = 1;
+  }
+  _lichtPad(punten, kleur, dikte, sterkte){
+    const g = this.glCtx, k = this.glSchaal;
+    if (punten.length < 2) return;
+    g.globalAlpha = sterkte == null ? 1 : sterkte;
+    g.strokeStyle = kleur; g.lineWidth = Math.max(.7, (dikte || 2)*k);
+    g.lineJoin = g.lineCap = "round";
+    g.beginPath(); g.moveTo(punten[0].x*k, punten[0].y*k);
+    for (let i = 1; i < punten.length; i++) g.lineTo(punten[i].x*k, punten[i].y*k);
+    g.closePath(); g.stroke();
+    g.globalAlpha = 1;
   }
 
   /* een iso-doos: linkerwand, rechterwand, bovenvlak */
@@ -663,25 +850,43 @@ export class IsoOffice {
   _prop(p){
     const c = this.ctx, z = this.cam.zoom, T = this.theme;
     switch (p.kind){
-      case "wall":  this._doos(p.x,p.y,p.w,p.d,p.h,T.wall); break;
+      case "wall": {
+        this._doos(p.x, p.y, p.w, p.d, p.h, T.wall);
+        /* een lichtstrook halverwege de wand geeft de ruimte diepte */
+        const s = this._naarScherm(p.x + p.w, p.y + p.d);
+        const hoog = (p.h - 20)*z;
+        c.fillStyle = "rgba(110,150,225,.16)";
+        c.fillRect(s.x - (p.d < .5 ? 30 : 4)*z, s.y - hoog, (p.d < .5 ? 30 : 4)*z, 2.2*z);
+        this._lichtRect(s.x - (p.d < .5 ? 30 : 4)*z, s.y - hoog, (p.d < .5 ? 30 : 4)*z, 2.2*z, "#4C7EF3", .3);
+        break;
+      }
       case "glass":
         c.save(); c.globalAlpha = .26;
         this._doos(p.x,p.y,p.w,p.d,p.h,T.glass);
         c.restore(); break;
 
       case "desk": {
+        const werkt = this.werkendeBureaus && this.werkendeBureaus[p.ix];
         this._doos(p.x, p.y, p.w, p.d, p.h, T.bureau);
+        /* een bureaublad heeft een rand licht waar de lamp erop valt */
+        const rand = this._naarScherm(p.x, p.y);
+        this._lichtRect(rand.x - 2*z, rand.y - p.h*z, TILE.w*.9*z, 1.4*z, "#5E82C8", .28);
+        /* stoel */
+        this._doos(p.x + .75, p.y + .95, .55, .5, 12, "#2B3651");
+        this._doos(p.x + .75, p.y + 1.38, .55, .12, 26, "#31405F");
+        /* scherm */
         this._doos(p.x + .55, p.y + .2, .6, .1, 32, "#2A3757");
         const s = this._naarScherm(p.x + .6, p.y + .24);
-        const werkt = this.werkendeBureaus && this.werkendeBureaus[p.ix];
-        c.fillStyle = werkt ? "rgba(90,150,255,.55)" : "rgba(70,105,170,.24)";
-        c.fillRect(s.x - 11*z, s.y - 31*z, 24*z, 14*z);
-        c.fillStyle = werkt ? "rgba(190,225,255,.9)" : "rgba(150,175,215,.35)";
+        const sx = s.x - 11*z, sy = s.y - 31*z, sw = 24*z, sh = 14*z;
+        c.fillStyle = werkt ? "rgba(96,158,255,.75)" : "rgba(70,105,170,.26)";
+        c.fillRect(sx, sy, sw, sh);
+        c.fillStyle = werkt ? "rgba(205,232,255,.95)" : "rgba(150,175,215,.35)";
         for (let i = 0; i < 3; i++){
           const stap = werkt && !this.reduced ? Math.floor(this.t*1.6) : 0;
           const w = (6 + ((stap + i*3 + (p.ix||0)*5) % 8)) * z;
-          c.fillRect(s.x - 8*z, s.y - (28 - i*4)*z, w, 1.5*z);
+          c.fillRect(sx + 3*z, sy + (3 + i*4)*z, w, 1.5*z);
         }
+        this._lichtRect(sx, sy, sw, sh, werkt ? "#6EA6FF" : "#3E5C93", werkt ? .8 : .2);
         break;
       }
 
@@ -700,21 +905,38 @@ export class IsoOffice {
         this._doos(p.x, p.y, p.w, p.d, p.h, "#26324E");
         const s = this._naarScherm(p.x + p.w, p.y + p.d);
         for (let i = 0; i < (p.totaal || 0) && i < 6; i++){
-          c.fillStyle = i < (p.live || 0) ? (p.kleur || T.ok) : "rgba(120,140,180,.3)";
-          c.fillRect(s.x - 2*z, s.y - (p.h - 9 - i*6)*z, 13*z, 2.6*z);
+          const aan = i < (p.live || 0);
+          const bx = s.x - 2*z, by = s.y - (p.h - 9 - i*6)*z;
+          c.fillStyle = aan ? (p.kleur || T.ok) : "rgba(120,140,180,.3)";
+          c.fillRect(bx, by, 13*z, 2.6*z);
+          if (aan) this._lichtRect(bx, by, 13*z, 2.6*z, p.kleur || T.ok, .8);
         }
         break;
       }
-      case "counter": this._doos(p.x,p.y,p.w,p.d,p.h,T.toonbank); break;
-      case "machine": this._doos(p.x,p.y,p.w,p.d,p.h,T.machine); break;
+      case "counter": {
+        this._doos(p.x,p.y,p.w,p.d,p.h,T.toonbank);
+        const s = this._naarScherm(p.x, p.y + p.d);
+        this._lichtRect(s.x, s.y - p.h*z - 1*z, TILE.w*1.1*z, 1.6*z, "#C9A227", .3);
+        break;
+      }
+      case "machine": {
+        this._doos(p.x,p.y,p.w,p.d,p.h,T.machine);
+        const s = this._naarScherm(p.x + p.w, p.y + p.d/2);
+        const aan = Math.sin(this.t*2.4) > -.4;
+        c.fillStyle = aan ? "#F0B454" : "rgba(240,180,84,.25)";
+        c.beginPath(); c.arc(s.x - 5*z, s.y - (p.h - 8)*z, 2*z, 0, 7); c.fill();
+        if (aan) this._lichtBol(s.x - 5*z, s.y - (p.h - 8)*z, 5*z, "#F0B454", .8);
+        break;
+      }
 
       case "kast": {
         this._doos(p.x, p.y, p.w, p.d, p.h, T.boekenkast);
         /* elk boekje is één rapport in drafts/ */
         const s = this._naarScherm(p.x + p.w, p.y);
         for (let i = 0; i < (p.vol || 0); i++){
-          c.fillStyle = T.ok;
-          c.fillRect(s.x - 8*z, s.y - (p.h - 8 - i*9)*z, 4*z, 6*z);
+          const bx = s.x - 8*z, by = s.y - (p.h - 8 - i*9)*z;
+          c.fillStyle = T.ok; c.fillRect(bx, by, 4*z, 6*z);
+          this._lichtRect(bx, by, 4*z, 6*z, T.ok, .85);
         }
         break;
       }
@@ -744,13 +966,22 @@ export class IsoOffice {
     const adem = !a.loopt && !this.reduced ? Math.sin(a.bob)*1.1*z : 0;
     const baseY = s.y + TILE.h/2*z;
     const bodemY = baseY - wip + adem + (zit ? 5*z : 0);
-    const hoogte = (zit ? 20 : 30)*z, breedte = 17*z;
+    const hoogte = (zit ? 23 : 34)*z, breedte = 19*z;
 
     c.save();
     if (flauw) c.globalAlpha = .45;
 
-    c.fillStyle = "rgba(0,0,0,.45)";
+    c.fillStyle = "rgba(0,0,0,.5)";
     c.beginPath(); c.ellipse(s.x, baseY, 15*z, 7*z, 0, 0, 7); c.fill();
+    if (!flauw){
+      /* een agent draagt zijn eigen kleur mee op de vloer */
+      const gl = c.createRadialGradient(s.x, baseY, 0, s.x, baseY, 26*z);
+      gl.addColorStop(0, a.color + "44"); gl.addColorStop(1, a.color + "00");
+      c.save(); c.globalCompositeOperation = "lighter";
+      c.fillStyle = gl; c.beginPath(); c.ellipse(s.x, baseY, 26*z, 12*z, 0, 0, 7); c.fill();
+      c.restore();
+      this._lichtBol(s.x, baseY - hoogte*.35, 9*z, a.color, .22);
+    }
 
     if (gekozen || a.gesleept){
       c.save();
@@ -758,6 +989,7 @@ export class IsoOffice {
       c.setLineDash([6*z, 5*z]); c.lineDashOffset = -this.t*22*z;
       c.beginPath(); c.ellipse(s.x, baseY, 19*z, 9.5*z, 0, 0, 7); c.stroke();
       c.restore();
+      this._lichtBol(s.x, baseY, 20*z, a.gesleept ? T.wait : T.gold, .3);
     }
     if (a.gesleept && this.mikpunt){
       const m = this._naarScherm(this.mikpunt.x + .5, this.mikpunt.y + .5);
@@ -777,22 +1009,30 @@ export class IsoOffice {
     const g = c.createLinearGradient(s.x - breedte/2, 0, s.x + breedte/2, 0);
     g.addColorStop(0, shade(a.color,-32)); g.addColorStop(.55, a.color); g.addColorStop(1, shade(a.color,-52));
     c.fillStyle = g; c.fill();
+    /* randlicht langs de linkerkant, zodat de figuur van de vloer loskomt */
+    c.save(); c.clip();
+    c.strokeStyle = shade(a.color, 70); c.globalAlpha = .55; c.lineWidth = 2*z;
+    c.beginPath(); c.moveTo(s.x - breedte/2 + 1*z, bodemY);
+    c.quadraticCurveTo(s.x - breedte/2 - .5*z, bodemY - hoogte*.65, s.x - breedte*.34, bodemY - hoogte*.82);
+    c.stroke(); c.restore();
 
     /* hoofd met initialen */
     const hoofdY = bodemY - hoogte - 2*z;
-    c.beginPath(); c.arc(s.x, hoofdY, 8.2*z, 0, 7);
-    c.fillStyle = shade(a.color, 42); c.fill();
+    c.beginPath(); c.arc(s.x, hoofdY, 9.2*z, 0, 7);
+    c.fillStyle = shade(a.color, 24); c.fill();
     c.strokeStyle = "rgba(0,0,0,.32)"; c.lineWidth = 1*z; c.stroke();
     c.fillStyle = "rgba(255,255,255,.94)";
-    c.font = "700 " + (8.5*z).toFixed(1) + 'px "IBM Plex Sans",system-ui,sans-serif';
+    c.font = "700 " + (9.5*z).toFixed(1) + 'px "IBM Plex Sans",system-ui,sans-serif';
     c.fillText(initialen(a.short || a.name), s.x, hoofdY + .5*z);
 
     /* statusstip: dezelfde kleuren als de legenda van de hub */
-    c.beginPath(); c.arc(s.x + 9*z, hoofdY - 7*z, 4*z, 0, 7);
-    c.fillStyle = STATUS_COLOR[a.status] || T.idle; c.fill();
+    const stipK = STATUS_COLOR[a.status] || T.idle;
+    c.beginPath(); c.arc(s.x + 10*z, hoofdY - 7*z, 4.4*z, 0, 7);
+    c.fillStyle = stipK; c.fill();
+    if (!flauw) this._lichtBol(s.x + 10*z, hoofdY - 7*z, 5*z, stipK, .5);
     if (a.status === "opgepakt" && !this.reduced){
       const puls = .25 + Math.abs(Math.sin(this.t*2.2))*.35;
-      c.beginPath(); c.arc(s.x + 9*z, hoofdY - 7*z, (5.5 + puls*3)*z, 0, 7);
+      c.beginPath(); c.arc(s.x + 10*z, hoofdY - 7*z, (6 + puls*3)*z, 0, 7);
       c.strokeStyle = "rgba(107,168,245," + puls.toFixed(2) + ")"; c.lineWidth = 1.4*z; c.stroke();
     }
 
@@ -804,13 +1044,14 @@ export class IsoOffice {
   /* Wolkje en naam gaan in een aparte laag, ná alle meubels. Anders schuift
    * het bureau van de buurman eroverheen. */
   _agentLabel(a){
-    const c = this.ctx, z = this.cam.zoom, T = this.theme;
+    const c = this.ctx, T = this.theme;
+    const zoom = this.cam.zoom, z = Math.min(zoom, 1);
     if (a._kop == null) return;
     const s = this._naarScherm(a.x, a.y);
     const gekozen = a.id === this.selectedId;
 
-    if (a.gedachte && z > .55){
-      const by = a._kop - 26*z;
+    if (a.gedachte && zoom > .55){
+      const by = a._kop - 26*zoom;
       c.fillStyle = "rgba(232,237,247,.94)";
       c.beginPath(); c.roundRect(s.x - 11*z, by - 10*z, 22*z, 19*z, 7*z); c.fill();
       c.beginPath(); c.arc(s.x - 6*z, by + 12*z, 2.6*z, 0, 7); c.fill();
@@ -819,7 +1060,7 @@ export class IsoOffice {
       c.fillText(a.gedachte, s.x, by);
     }
 
-    if ((gekozen || this.hoverAgent === a.id) && z > .45){
+    if ((gekozen || this.hoverAgent === a.id) && zoom > .45){
       const label = a.name;
       c.font = "600 " + (10.5*z).toFixed(1) + 'px "IBM Plex Mono",ui-monospace,monospace';
       const w = c.measureText(label).width + 13*z, ly = a._voet + 13*z;

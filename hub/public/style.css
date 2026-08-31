@@ -41,7 +41,7 @@ code{font-family:"IBM Plex Mono",monospace;font-size:.9em;background:var(--panel
 .hud b{font-weight:600;color:var(--ink)}
 .hud b.ok{color:var(--ok)} .hud b.wait{color:var(--wait)} .hud b.busy{color:var(--busy)}
 
-.kamers{position:absolute;left:10px;bottom:64px;display:flex;flex-wrap:wrap;gap:5px;
+.kamers{position:absolute;left:10px;bottom:88px;display:flex;flex-wrap:wrap;gap:5px;
   max-width:calc(100% - 20px)}
 .kamers button{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.05em;
   background:rgba(21,31,53,.88);border:1px solid var(--line-2);color:var(--ink-faint);
@@ -56,7 +56,21 @@ code{font-family:"IBM Plex Mono",monospace;font-size:.9em;background:var(--panel
 .vloerknoppen button[aria-pressed="true"]{border-color:var(--wait);color:var(--wait);
   background:rgba(240,180,84,.14)}
 
-.vloerlabel{position:absolute;left:10px;bottom:10px;max-width:min(420px,calc(100% - 20px));margin:0;
+/* ---------- lopende band met de stand van zaken ---------- */
+.ticker{position:absolute;left:0;right:0;bottom:0;height:26px;overflow:hidden;
+  background:linear-gradient(180deg,rgba(11,18,32,0),rgba(11,18,32,.92) 40%);
+  border-top:1px solid rgba(56,73,107,.5);display:flex;align-items:center}
+.ticker .baan{display:flex;gap:0;white-space:nowrap;will-change:transform;
+  animation:schuif 64s linear infinite}
+.ticker .baan:hover{animation-play-state:paused}
+.ticker i{display:inline-flex;align-items:center;gap:7px;padding:0 20px;
+  font-family:"IBM Plex Mono",monospace;font-size:11px;font-style:normal;color:var(--ink-faint)}
+.ticker i b{color:var(--ink-soft);font-weight:500}
+.ticker i s{width:5px;height:5px;border-radius:50%;text-decoration:none;flex:none}
+@keyframes schuif{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@media (prefers-reduced-motion:reduce){ .ticker .baan{animation:none} }
+
+.vloerlabel{position:absolute;left:10px;bottom:34px;max-width:min(420px,calc(100% - 20px));margin:0;
   background:rgba(11,18,32,.82);border:1px solid var(--line);border-left:2px solid var(--line-2);
   border-radius:3px;padding:7px 11px;font-size:11.5px;line-height:1.5;color:var(--ink-faint);
   backdrop-filter:blur(6px)}

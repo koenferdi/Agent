@@ -17,15 +17,15 @@ export const GRID = { w: 23, h: 16 };
 
 /* Kamers. dept:true = afdeling met bureaus. */
 export const ZONES = [
-  { name:"kennis",    label:"Kennis",     emo:"\u{1F50D}", kleur:"#4FD1C5", floor:"#1B2A4B", x0:0,  y0:0,  x1:6,  y1:3,  dept:true },
-  { name:"aanbod",    label:"Aanbod",     emo:"\u{1F4E6}", kleur:"#5FCE9B", floor:"#182C46", x0:8,  y0:0,  x1:14, y1:3,  dept:true },
-  { name:"markt",     label:"Markt",      emo:"\u{1F4E3}", kleur:"#E0A458", floor:"#262641", x0:16, y0:0,  x1:22, y1:3,  dept:true },
-  { name:"financien", label:"Financien",  emo:"\u{1F4B6}", kleur:"#6BA8F5", floor:"#1A2647", x0:0,  y0:6,  x1:6,  y1:9,  dept:true },
-  { name:"operatie",  label:"Operatie",   emo:"⚙",    kleur:"#A78BFA", floor:"#232748", x0:8,  y0:6,  x1:14, y1:9,  dept:true },
-  { name:"archive",   label:"Archief",    emo:"\u{1F4DA}", kleur:"#7488AC", floor:"#16283F", x0:16, y0:6,  x1:22, y1:9  },
-  { name:"meeting",   label:"Overleg",    emo:"\u{1F5D3}", kleur:"#7488AC", floor:"#262A55", x0:0,  y0:12, x1:6,  y1:15 },
-  { name:"lounge",    label:"Lounge",     emo:"\u{1F6CB}", kleur:"#9A6BE0", floor:"#2B2750", x0:8,  y0:12, x1:14, y1:15 },
-  { name:"coffee",    label:"Koffie",     emo:"☕",    kleur:"#C9A227", floor:"#302C46", x0:16, y0:12, x1:22, y1:15 }
+  { nr:"01", name:"kennis",    label:"Kennis",     emo:"\u{1F50D}", kleur:"#4FD1C5", floor:"#1B2A4B", x0:0,  y0:0,  x1:6,  y1:3,  dept:true },
+  { nr:"02", name:"aanbod",    label:"Aanbod",     emo:"\u{1F4E6}", kleur:"#5FCE9B", floor:"#182C46", x0:8,  y0:0,  x1:14, y1:3,  dept:true },
+  { nr:"03", name:"markt",     label:"Markt",      emo:"\u{1F4E3}", kleur:"#E0A458", floor:"#262641", x0:16, y0:0,  x1:22, y1:3,  dept:true },
+  { nr:"04", name:"financien", label:"Financien",  emo:"\u{1F4B6}", kleur:"#6BA8F5", floor:"#1A2647", x0:0,  y0:6,  x1:6,  y1:9,  dept:true },
+  { nr:"05", name:"operatie",  label:"Operatie",   emo:"⚙",    kleur:"#A78BFA", floor:"#232748", x0:8,  y0:6,  x1:14, y1:9,  dept:true },
+  { nr:"06", name:"archive",   label:"Archief",    emo:"\u{1F4DA}", kleur:"#7488AC", floor:"#16283F", x0:16, y0:6,  x1:22, y1:9  },
+  { nr:"07", name:"meeting",   label:"Overleg",    emo:"\u{1F5D3}", kleur:"#7488AC", floor:"#262A55", x0:0,  y0:12, x1:6,  y1:15 },
+  { nr:"08", name:"lounge",    label:"Lounge",     emo:"\u{1F6CB}", kleur:"#9A6BE0", floor:"#2B2750", x0:8,  y0:12, x1:14, y1:15 },
+  { nr:"09", name:"coffee",    label:"Koffie",     emo:"☕",    kleur:"#C9A227", floor:"#302C46", x0:16, y0:12, x1:22, y1:15 }
 ];
 
 export const AFDELINGEN = ZONES.filter(z => z.dept).map(z => z.name);
@@ -48,6 +48,17 @@ export const SPOTS = {
   lounge:  [{x:9,y:13,zit:true},{x:11,y:13,zit:true},{x:8,y:15},{x:12,y:14}],
   archive: [{x:16,y:9},{x:19,y:9},{x:20,y:8},{x:17,y:7}]
 };
+
+/* Kabelgoten door de gangen. Ze lopen van elke afdelingskamer naar het
+ * archief: daar komt het werk uiteindelijk terecht. Er loopt alleen licht
+ * doorheen als die afdeling bemand is. */
+export const KABELS = [
+  { dept:"kennis",    punten:[{x:3,y:4},{x:3,y:5},{x:15,y:5},{x:15,y:8},{x:16.2,y:8}] },
+  { dept:"aanbod",    punten:[{x:11,y:4},{x:11,y:5},{x:15,y:5},{x:15,y:8},{x:16.2,y:8}] },
+  { dept:"markt",     punten:[{x:19,y:4},{x:19,y:5},{x:15,y:5},{x:15,y:8},{x:16.2,y:8}] },
+  { dept:"financien", punten:[{x:6.6,y:8},{x:7,y:8},{x:7,y:5},{x:15,y:5},{x:15,y:8},{x:16.2,y:8}] },
+  { dept:"operatie",  punten:[{x:14.6,y:8},{x:15,y:8},{x:16.2,y:8}] }
+];
 
 /* Lichtplekken boven elk bureau. */
 export const LAMPEN = DESKS.map(d => ({ x: d.x + 0.9, y: d.y + 0.5, r: 92 }));

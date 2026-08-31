@@ -106,6 +106,34 @@ function renderHud(){
     + '<span>Aan jou <b class="'+(aanJou?"wait":"")+'">'+aanJou+'</b></span>';
 }
 
+/* De lopende band: alleen dingen die echt in de bestanden staan. */
+function renderTicker(){
+  var t=el("ticker"); if(!t) return;
+  var items=[];
+  S.drafts.forEach(function(d){
+    var v=d.meta && d.meta.verdict ? " · " + d.meta.verdict : "";
+    var c=d.meta && d.meta.confidence ? " · zekerheid " + d.meta.confidence : "";
+    items.push({kleur:"var(--ok)", tekst:"RAPPORT <b>"+esc(d.title)+"</b>"+esc(v+c)});
+  });
+  S.desk.decisions.filter(function(d){return !d.resolved;}).forEach(function(d){
+    items.push({kleur:"var(--wait)", tekst:"AAN JOU <b>"+esc(d.question)+"</b>"});
+  });
+  S.desk.briefs.forEach(function(b){
+    var m=meta(b.agent);
+    items.push({kleur:SCOL[b.status]||"var(--idle)",
+      tekst:esc(m.no+" "+m.naam)+" <b>"+esc(b.topic)+"</b> · "+esc(b.status)});
+  });
+  S.capabilities.filter(function(c){return !c.done_by;}).forEach(function(c){
+    items.push({kleur:"var(--idle)", tekst:"NOG GEEN AGENT <b>"+esc(c.title)+"</b> · "+esc(c.department)});
+  });
+  if(!items.length) items.push({kleur:"var(--idle)", tekst:"Nog niets te melden."});
+  var rij=items.map(function(i){
+    return '<i><s style="background:'+i.kleur+'"></s>'+i.tekst+'</i>';
+  }).join("");
+  var nieuw='<div class="baan">'+rij+rij+'</div>';
+  if(t.dataset.inhoud !== rij){ t.innerHTML=nieuw; t.dataset.inhoud=rij; }
+}
+
 function renderKamers(){
   var k=el("kamers"); if(!k || k.dataset.klaar) return;
   k.innerHTML = KAMERS.map(function(z){
@@ -343,7 +371,7 @@ function renderAll(){
   var ms=el("mobstat");
   if(ms) ms.style.display = view==="map" ? "" : "none";
 
-  if(view==="map"){ renderMobStat(); renderHud(); renderKamers(); markeerSelectie(); renderPanel(); }
+  if(view==="map"){ renderMobStat(); renderHud(); renderKamers(); renderTicker(); markeerSelectie(); renderPanel(); }
   else { el("panel").innerHTML = renderCapability(); }
   renderSide();
 }
