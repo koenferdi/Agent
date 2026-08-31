@@ -115,7 +115,8 @@ export class IsoBridge {
         dept: afdelingVan(state, a.id),
         desk: bureaus[a.id] || 0,
         color: AGENT_COLOR_VLOER[a.id] || AGENT_COLOR[a.id] || THEME.busy,
-        status: statusVanAgent(state, a.id)
+        status: statusVanAgent(state, a.id),
+        statusTekst: STATUS_LABEL[statusVanAgent(state, a.id)] || ""
       };
     });
 

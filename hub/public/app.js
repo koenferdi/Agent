@@ -405,45 +405,80 @@ function suggestieVoor(agentId){
 function renderTools(){
   var doel = el("toolblad"); if(!doel) return;
   var klaar = gereedschap.filter(function(g){return g.klaar;}).length;
-  var h = '<h2 class="blad-kop">Gereedschap</h2>'
-    + '<p class="blad-uit">Wat een agent tijdens een run mag doen. Alles hier is alleen-lezen: '
-    + 'hij kan zoeken, lezen en kijken, maar niet zelf schrijven. Het rapport wordt aan het eind '
-    + 'door de hub weggeschreven, zodat er nooit iets ongemerkt verandert. '
-    + '<b>' + klaar + ' van de ' + gereedschap.length + '</b> zijn nu bruikbaar.</p>'
-    + '<div class="biblio">';
+
+  /* hoe vaak is elk stuk gereedschap echt gebruikt? uit de runlogboeken */
+  var gebruik = {};
+  runlijst.forEach(function(r){
+    (r.gereedschap||[]).forEach(function(g){ gebruik[g.naam] = (gebruik[g.naam]||0) + 1; });
+  });
+  var meest = Math.max(1, Math.max.apply(null, gereedschap.map(function(g){return gebruik[g.id]||0;})));
+  var totaalGebruik = Object.keys(gebruik).reduce(function(n,k){return n+gebruik[k];},0);
+
+  var h = '<section class="held klein">'
+    + '<div class="held-cijfer"><b>' + klaar + '<span>/' + gereedschap.length + '</span></b>'
+    + '<span class="held-label">gereedschap bruikbaar</span></div>'
+    + '<div class="held-meter">' + meter(klaar, gereedschap.length, "var(--busy)")
+    + '<p>Alles hier is alleen-lezen. Een agent kan zoeken, lezen en kijken; schrijven doet '
+    + 'de hub aan het eind, zodat er nooit iets ongemerkt verandert.'
+    + (totaalGebruik ? ' Tot nu toe ' + totaalGebruik + ' keer gebruikt.' : '') + '</p></div></section>';
+
+  h += '<div class="biblio">';
   gereedschap.forEach(function(g){
-    var gebruikers = S.agents.filter(function(a){ return suggestieVoor(a.id).indexOf(g.id)>=0; });
+    var n = gebruik[g.id] || 0;
+    var wie = S.agents.filter(function(a){ return suggestieVoor(a.id).indexOf(g.id)>=0; });
     h += '<article class="gkaart' + (g.klaar?"":" uit") + '">'
-      + '<div class="kop"><div class="ic">' + esc(g.icoon||"·") + '</div>'
+      + '<div class="kop"><div class="ic">' + toolIcoon(g.id) + '</div>'
       + '<h3>' + esc(g.naam) + '</h3>'
       + '<span class="status ' + (g.klaar?"aan":"uit") + '">' + (g.klaar?"klaar":"uit") + '</span></div>'
       + '<p>' + esc(g.kort) + '</p>'
       + '<p class="waarom">' + esc(g.waarom) + '</p>'
-      + '<div class="voet">' + (g.klaar
-          ? '<b>Via</b> ' + esc(g.via)
-          : '<b>Nodig</b> ' + esc(g.reden || g.nodig)) + '</div>';
-    if(gebruikers.length){
-      h += '<div class="gebruikers">' + gebruikers.map(function(a){
-        return '<span>' + esc(meta(a.id).naam) + '</span>'; }).join("") + '</div>';
-    }
-    h += '</article>';
+      + '<div class="gbalk"><div class="l"><span>' + (n ? n + (n===1?" keer gebruikt":" keer gebruikt") : "nog niet gebruikt") + '</span>'
+      + '<span class="mono">' + esc(g.klaar ? g.via : "—") + '</span></div>'
+      + '<div class="meter-baan" style="--kleur:' + (g.klaar ? "var(--busy)" : "var(--idle)") + '">'
+      + '<i style="width:' + Math.round((n/meest)*100) + '%"></i></div></div>'
+      + (g.klaar ? '' : '<div class="voet nodig">' + esc(g.reden || g.nodig) + '</div>')
+      + '<div class="gwie">' + wie.map(function(a){
+          return '<span class="stip" style="background:'+kleurVan(a.id)+'" title="'+esc(meta(a.id).naam)+'"></span>';
+        }).join("") + '<em>' + wie.length + ' van de ' + S.agents.length + ' agents</em></div>'
+      + '</article>';
   });
   h += '</div>';
 
-  h += '<div class="blad-sectie">Wie mag wat</div><div class="stack">';
-  S.agents.forEach(function(a){
-    var s2 = suggestieVoor(a.id);
-    h += '<div class="card"><div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap">'
-      + '<b>' + esc(meta(a.id).no + " " + meta(a.id).naam) + '</b>'
-      + '<span class="mono" style="font-size:11px;color:var(--ink-faint)">' + esc(a.id) + '</span></div>'
-      + '<div class="gebruikers">' + s2.map(function(id){
-          var g = gereedschap.filter(function(x){return x.id===id;})[0];
-          return '<span style="' + (g && g.klaar ? "" : "opacity:.5") + '">'
-            + esc(g ? g.naam : id) + '</span>';
-        }).join("") + '</div></div>';
+  /* matrix: wie mag wat, in één blik */
+  h += '<section class="kaart-blok"><header><h3>Wie mag wat</h3>'
+    + '<span class="mono">uit de tools-regel van elke agent</span></header>'
+    + '<div class="matrix-omhulsel"><table class="matrix"><thead><tr><th>Agent</th>'
+    + gereedschap.map(function(g){ return '<th><span>'+esc(g.naam)+'</span></th>'; }).join("")
+    + '</tr></thead><tbody>';
+  S.agents.slice().sort(function(a,b){return meta(a.id).no.localeCompare(meta(b.id).no);}).forEach(function(a){
+    var mag = suggestieVoor(a.id);
+    h += '<tr data-pick="'+esc(a.id)+'"><td><span class="stip" style="background:'+kleurVan(a.id)+'"></span>'
+      + esc(meta(a.id).naam) + '</td>'
+      + gereedschap.map(function(g){
+          var ja = mag.indexOf(g.id) >= 0;
+          return '<td class="c">' + (ja
+            ? '<span class="vink'+(g.klaar?"":" uit")+'" title="'+(g.klaar?"beschikbaar":"nog niet bruikbaar")+'">'
+              + (g.klaar ? "&#10003;" : "&#8226;") + '</span>'
+            : '<span class="nee">·</span>') + '</td>';
+        }).join("") + '</tr>';
   });
-  h += '</div>';
+  h += '</tbody></table></div>'
+    + '<p class="matrix-noot">Een vinkje betekent dat de agent het gereedschap krijgt aangeboden. '
+    + 'Een stip betekent: wel toegestaan, maar het gereedschap zelf werkt nog niet.</p></section>';
+
   doel.innerHTML = h;
+}
+
+/* Getekende iconen; een teken uit een lettertype is geen icoon. */
+function toolIcoon(id){
+  var d = {
+    web_zoek: '<circle cx="8.5" cy="8.5" r="5.2"/><path d="M12.4 12.4 17 17"/>',
+    web_haal: '<path d="M10 3v10"/><path d="m6 9.5 4 4 4-4"/><path d="M3.5 16.5h13"/>',
+    lees_bestand: '<path d="M5 2.6h6l4 4v11H5z"/><path d="M11 2.6v4h4"/><path d="M7.5 11h5M7.5 14h5"/>',
+    lijst_bestanden: '<path d="M3.5 5h13M3.5 10h13M3.5 15h9"/>'
+  }[id] || '<circle cx="10" cy="10" r="6"/>';
+  return '<svg viewBox="0 0 20 20" width="17" height="17" fill="none" stroke="currentColor" '
+    + 'stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">' + d + '</svg>';
 }
 
 /* ---------- werkblad: runs, beslissingen, rapporten ---------- */
@@ -705,7 +740,10 @@ function briefCard(b){
 /* Het paneel waarin je een agent een opdracht geeft en meekijkt. */
 function werkbank(agentId){
   var lijst = modellen.modellen || [];
+  var kanWel = lijst.filter(function(m){ return m.bruikbaar !== false; });
+  /* nooit een model voorselecteren dat je niet kunt aanroepen */
   var keuze = (run && run.agentId===agentId ? run.model : null) || modellen.standaard;
+  if(!kanWel.some(function(m){return m.id===keuze;})) keuze = kanWel.length ? kanWel[0].id : null;
   var opties = lijst.map(function(m){
     return '<option value="'+esc(m.id)+'"'+(m.id===keuze?" selected":"")+(m.bruikbaar===false?" disabled":"")+'>'
       + esc(m.naam) + ' · ' + esc(m.aanbieder)
@@ -714,10 +752,11 @@ function werkbank(agentId){
   var onbruikbaar = lijst.filter(function(m){return m.bruikbaar===false;}).length;
   var bezigHier = run && run.agentId === agentId;
   var h = '<div class="werkbank"><div class="wkop">Aan het werk zetten</div>';
-  if(!lijst.length){
-    h += '<div class="empty"><b>Nog geen model beschikbaar.</b> Zet een sleutel bij '
-      + '<button class="quiet" id="openSleutels" style="padding:0;text-decoration:underline">instellingen</button>, '
-      + 'of draai iets lokaals (Ollama) op deze machine.</div>';
+  if(!kanWel.length){
+    h += '<div class="empty"><b>Geen bruikbaar model.</b> Alles in de lijst heeft een sleutel nodig die er '
+      + 'nog niet is. Zet er een bij <button class="quiet" id="openSleutels" style="padding:0;'
+      + 'text-decoration:underline">sleutels</button>, of draai <code>ollama serve</code> op deze machine — '
+      + 'dan verschijnen je lokale modellen vanzelf.</div>';
   } else {
     h += '<textarea id="runOpdracht" placeholder="Wat moet hij uitzoeken? Eén concrete vraag."'
       + (bezigHier && run.bezig ? " disabled" : "") + '></textarea>'
@@ -738,15 +777,56 @@ function werkbank(agentId){
 
 function renderPanel(){
   var a=S.agents.filter(function(x){return x.id===sel;})[0];
-  if(!a){el("panel").innerHTML="";return;}
-  var p=meta(a.id),bs=briefsOf(a.id),st=statusOf(a.id);
-  var h='<section class="panel"><h2>'+esc(p.no+" "+p.naam)+'</h2><div class="body">'
-    +'<div class="ahead"><div class="badge" style="background:'+kleurVan(a.id)+'">'+esc(p.no)+'</div>'
-    +'<div><div class="nm">'+esc(a.id)+'</div>'
-    +'<div class="rl">'+esc(a.description.slice(0,240))+'</div>'
-    +'<div class="fl">'+esc(a.file)+' · model '+esc(a.model)+' · '+a.tools.length+' tools</div>'
-    +'<div class="tools"><span class="chip '+(st==="offphase"?"idle":st)+'">'+esc(statusLabel(st))+'</span></div>'
-    +'</div></div>';
+  if(!a){el("panel").innerHTML='<div class="leeg-insp">Kies een agent op de vloer, in de sterrenkaart of in de tabel.</div>';return;}
+  var p=meta(a.id), bs=briefsOf(a.id), st=statusOf(a.id), kl=kleurVan(a.id);
+  var mijn = runlijst.filter(function(r){return r.agentId===a.id;});
+  var tokens = mijn.reduce(function(n,r){return n+(r.tokensIn||0)+(r.tokensUit||0);},0);
+  var kosten = mijn.reduce(function(n,r){return n+(r.kosten||0);},0);
+  var afd = (S.capabilities||[]).filter(function(c){return c.done_by===a.id;});
+  var mijnGereedschap = suggestieVoor(a.id);
+
+  var h = '<div class="insp-agent">';
+
+  /* kop */
+  h += '<header class="ag-kop" style="--kleur:'+kl+'">'
+    + '<div class="ag-zegel"><span>'+esc(p.no)+'</span></div>'
+    + '<div class="ag-naam"><h2>'+esc(p.naam)+'</h2>'
+    + '<span class="mono">'+esc(a.id)+'</span></div>'
+    + '<span class="chip '+(st==="offphase"?"idle":st)+'">'+esc(statusLabel(st))+'</span>'
+    + '</header>';
+
+  /* drie cijfers */
+  h += '<div class="ag-cijfers">'
+    + '<div><b>'+(mijn.length||0)+'</b><span>runs</span></div>'
+    + '<div><b>'+(tokens?compact(tokens):"—")+'</b><span>tokens</span></div>'
+    + '<div><b>'+(kosten?"$"+kosten.toFixed(2):"—")+'</b><span>kosten</span></div>'
+    + '</div>';
+
+  /* wat hij doet */
+  h += '<p class="ag-uit">'+esc(a.description.slice(0,300))+'</p>';
+
+  h += '<div class="ag-rij"><span>Doet</span><div>'
+    + (afd.length ? afd.map(function(c){
+        return '<span class="tag" data-cap="'+esc(c.name)+'">'+esc(c.title)+'</span>'; }).join("")
+      : '<span class="tag leeg">nog geen capaciteit</span>') + '</div></div>';
+
+  h += '<div class="ag-rij"><span>Mag</span><div>'
+    + mijnGereedschap.map(function(id){
+        var g = gereedschap.filter(function(x){return x.id===id;})[0];
+        return '<span class="tag'+(g&&g.klaar?"":" uit")+'">'+esc(g?g.naam:id)+'</span>';
+      }).join("") + '</div></div>';
+
+  h += '<div class="ag-rij"><span>Staat in</span><div>'
+    + '<button class="tag pad" data-lees=".claude/agents/'+esc(a.id)+'.md">.claude/agents/'+esc(a.id)+'.md</button>'
+    + (afd.length ? '<button class="tag pad" data-lees="workflows/capabilities/'+esc(afd[0].name)+'.md">workflows/capabilities/'+esc(afd[0].name)+'.md</button>' : '')
+    + '<span class="tag stil">model '+esc(a.model)+'</span>'
+    + '</div></div>';
+
+  /* werkbank */
+  h += werkbank(a.id);
+
+  /* opdrachten */
+  h += '<div class="ag-sectie">Opdrachten'+(bs.length?' <em>'+bs.length+'</em>':'')+'</div>';
   if(p.offphase){
     h+='<div class="empty"><b>Deze agent staat stil.</b> Hij hoort bij een latere fase.</div>';
   } else if(!bs.length){
@@ -755,17 +835,31 @@ function renderPanel(){
   } else {
     h+='<div class="stack">';bs.forEach(function(b){h+=briefCard(b);});h+='</div>';
   }
-  h+=werkbank(a.id);
-  h+='<div class="stuur"><span class="lbl">Op de vloer</span>'
-    +'<button data-stuur="desk">Bureau</button>'
-    +'<button data-stuur="coffee">Koffie</button>'
-    +'<button data-stuur="meeting">Overleg</button>'
-    +'<button data-stuur="lounge">Lounge</button>'
-    +'<button data-stuur="archive">Archief</button></div>'
-    +'<p class="note">Verplaatsen verandert alleen het beeld. Het werk zelf verandert pas '
-    +'als de status van een opdracht hierboven wijzigt.</p>';
+
+  /* laatste runs */
+  if(mijn.length){
+    h += '<div class="ag-sectie">Laatste runs</div><div class="ag-runs">';
+    mijn.slice(0,5).forEach(function(r){
+      h += '<div class="ag-run'+(r.fout?" fout":"")+'">'
+        + '<span class="w">'+esc(r.fout ? r.fout.slice(0,70) : r.opdracht)+'</span>'
+        + '<span class="c mono">'+(r.fout?"mislukt":compact((r.tokensIn||0)+(r.tokensUit||0))+" tk")+'</span>'
+        + (r.bestand ? '<button class="quiet" data-read="'+esc(r.bestand)+'">lezen</button>' : '')
+        + '</div>';
+    });
+    h += '</div>';
+  }
+
+  /* op de vloer */
+  h += '<div class="stuur"><span class="lbl">Op de vloer</span>'
+    + '<button data-stuur="desk">Bureau</button>'
+    + '<button data-stuur="coffee">Koffie</button>'
+    + '<button data-stuur="meeting">Overleg</button>'
+    + '<button data-stuur="lounge">Lounge</button></div>'
+    + '<p class="note">Verplaatsen verandert alleen het beeld. Het werk verandert pas '
+    + 'als de status van een opdracht wijzigt.</p>';
+
   if(!p.offphase){
-    h+='<details class="adder"><summary>Opdracht voor '+esc(p.naam.toLowerCase())+'</summary><div class="body">'
+    h+='<details class="adder"><summary>Opdracht toevoegen</summary><div class="body">'
       +'<div class="grid2">'
       +'<div class="full"><label for="f-topic">Onderwerp of probleemgebied</label>'
       +'<input id="f-topic" placeholder="Afgebakend, niet een hele categorie"></div>'
@@ -773,7 +867,8 @@ function renderPanel(){
       +'<div><label for="f-dec">Welke beslissing dient dit?</label><input id="f-dec" placeholder="Stap ik hier in?"></div>'
       +'<div class="full"><button class="primary" id="f-add">Toevoegen</button></div></div></div></details>';
   }
-  el("panel").innerHTML=h+'</div></section>';
+
+  el("panel").innerHTML = h + '</div>';
   if(run && run.agentId === sel) renderWerkbank();
 }
 
@@ -920,6 +1015,8 @@ function renderAll(){
   if(view === "dash"){
     renderDash(); renderPanel();
   } else if(view === "map"){
+    /* het doek was verborgen toen de camera zich instelde; opnieuw meten */
+    if(vloer){ vloer.office._resize(); if(!vloer.office.zelfGezoomd) vloer.office.fit(); }
     renderHud(); renderKamers(); renderTicker(); markeerSelectie(); renderPanel();
   } else if(view === "ster"){
     var sb = el("sterbox");
@@ -970,6 +1067,14 @@ function md(src){
   flushPara();flushList(); if(inCode)out.push("</pre>");
   return out.join("\n");
 }
+function openBestand(pad){
+  fetch("/api/bestand?f="+encodeURIComponent(pad)).then(function(r){return r.json();}).then(function(d){
+    if(d.error){ alert(d.error); return; }
+    el("reader-title").textContent = d.file;
+    el("reader-body").innerHTML = "<pre>"+esc(d.content)+"</pre>";
+    el("reader").hidden = false;
+  });
+}
 function openReader(file){
   fetch("/api/draft?f="+encodeURIComponent(file)).then(function(r){return r.json();}).then(function(d){
     if(d.error){alert(d.error);return;}
@@ -1012,6 +1117,8 @@ document.addEventListener("click",function(e){
   if(t){ sel=t.dataset.pick; markeerSelectie(); renderPanel(); return; }
   var rd=e.target.closest("[data-read]");
   if(rd){ openReader(rd.dataset.read); return; }
+  var lz=e.target.closest("[data-lees]");
+  if(lz){ openBestand(lz.dataset.lees); return; }
   if(e.target.id==="f-add"){
     var topic=el("f-topic").value.trim();
     if(!topic){el("f-topic").focus();return;}

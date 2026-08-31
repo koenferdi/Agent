@@ -145,6 +145,34 @@ export class Sterrenkaart {
 
   _knoop(id){ return this.knopen.find(k => k.id === id) || null; }
 
+  /* Welke knopen horen bij deze? Zo kan de rest terugtreden als je ergens
+   * overheen gaat: dat is het verschil tussen een plaatje en een kaart. */
+  _verwant(id){
+    const uit = new Set([id]);
+    const k = this._knoop(id); if (!k) return uit;
+    const cl = this.huidige(); if (!cl) return uit;
+    const capsVan = a => cl.caps.filter(c => c.agent === a);
+    if (k.soort === "dept"){ this.knopen.forEach(x => uit.add(x.id)); return uit; }
+    if (k.soort === "tool"){
+      this.knopen.filter(x => x.soort === "agent" && x.agent
+        && (x.agent.gereedschap || []).indexOf(k.label) >= 0)
+        .forEach(x => { uit.add(x.id); capsVan(x.agent.id).forEach(c => uit.add("cap:" + c.naam)); });
+    }
+    if (k.soort === "agent" && k.agent){
+      capsVan(k.agent.id).forEach(c => uit.add("cap:" + c.naam));
+      this.knopen.filter(x => x.soort === "tool"
+        && (k.agent.gereedschap || []).indexOf(x.label) >= 0).forEach(x => uit.add(x.id));
+    }
+    if (k.soort === "cap" && k.cap && k.cap.agent){
+      uit.add("agent:" + k.cap.agent);
+      const ag = cl.agents.find(a => a.id === k.cap.agent);
+      if (ag) this.knopen.filter(x => x.soort === "tool"
+        && (ag.gereedschap || []).indexOf(x.label) >= 0).forEach(x => uit.add(x.id));
+    }
+    uit.add("dept:" + cl.naam);
+    return uit;
+  }
+
   /* ---------------- camera en invoer ---------------- */
 
   _pas(){
@@ -236,11 +264,34 @@ export class Sterrenkaart {
     c.save();
     c.globalAlpha = op;
 
+    this.nadruk = (this.hover || this.gekozen) ? this._verwant(this.hover || this.gekozen) : null;
+
     this._kern(cl);
     this._draden(cl);
     for (const k of this.knopen) this._punt(k, cl);
+    this._kop(cl);
 
     c.restore();
+  }
+
+  /* Een kop in beeld: welke afdeling, met wat er in zit. */
+  _kop(cl){
+    const c = this.ctx, s = this.cam.s;
+    const x = 18, y = 20;
+    c.save();
+    c.textAlign = "left"; c.textBaseline = "top";
+    c.font = "600 " + (17*Math.min(1.1, Math.max(.85, s))).toFixed(1) + 'px "IBM Plex Sans",system-ui,sans-serif';
+    c.fillStyle = cl.kleur;
+    c.fillText(cl.label.toUpperCase(), x, y);
+    const w = c.measureText(cl.label.toUpperCase()).width;
+    c.fillStyle = "rgba(120,150,200,.28)";
+    c.fillRect(x, y + 24, w, 1);
+    c.font = (11.5).toFixed(1) + 'px "IBM Plex Mono",ui-monospace,monospace';
+    c.fillStyle = "#68789C";
+    c.fillText(cl.agents.length + " agents · " + cl.caps.length + " capaciteiten · "
+      + cl.tools.length + " gereedschap", x, y + 32);
+    c.restore();
+    c.textAlign = "center"; c.textBaseline = "middle";
   }
 
   _raster(){
@@ -287,6 +338,7 @@ export class Sterrenkaart {
     const dept   = this.knopen.find(k => k.soort === "dept");
 
     const lijn = (a, b, kleur, alpha, streep) => {
+      if (this.nadruk && !(this.nadruk.has(a.id) && this.nadruk.has(b.id))) alpha *= .18;
       const p = this._naarScherm(a.x, a.y), q = this._naarScherm(b.x, b.y);
       c.save();
       if (streep){ c.setLineDash([2.5*this.cam.s, 5*this.cam.s]); c.lineDashOffset = -this.t*14; }
@@ -322,7 +374,7 @@ export class Sterrenkaart {
     const c = this.ctx, s = this._naarScherm(k.x, k.y), S = this.cam.s;
     const aan = this.gekozen === k.id || this.hover === k.id;
     const past = !this.zoek || k.label.toLowerCase().indexOf(this.zoek) >= 0;
-    const dof = this.zoek && !past;
+    const dof = (this.zoek && !past) || (this.nadruk && !this.nadruk.has(k.id));
 
     const straal = (k.soort === "dept" ? 21 : k.soort === "cap" ? 11 : 15) * S;
     c.save();
@@ -336,6 +388,10 @@ export class Sterrenkaart {
       c.restore();
     }
 
+    if (aan && !k.leeg){
+      c.beginPath(); c.arc(s.x, s.y, straal + 6*S, 0, 7);
+      c.strokeStyle = k.kleur + "44"; c.lineWidth = 1.4*S; c.stroke();
+    }
     c.beginPath(); c.arc(s.x, s.y, straal, 0, 7);
     c.fillStyle = "#0B1322"; c.fill();
     if (k.leeg){ c.setLineDash([3*S, 3*S]); }
@@ -366,6 +422,16 @@ export class Sterrenkaart {
     c.fillStyle = aan ? "#E8EDF7" : (k.leeg ? "#5A6982" : "#9BA9C4");
     const woorden = this._breek(k.label, groot ? 22 : 16);
     woorden.forEach((r, i) => c.fillText(r, s.x, s.y + straal + (11 + i*12)*S));
+
+    /* een agent draagt zijn werkvoorraad mee */
+    if (k.soort === "agent" && k.agent && k.agent.werk){
+      const bx = s.x + straal*.72, by = s.y - straal*.72;
+      c.beginPath(); c.arc(bx, by, 6.5*S, 0, 7);
+      c.fillStyle = "#F0B454"; c.fill();
+      c.fillStyle = "#0B1322";
+      c.font = "700 " + (8.5*S).toFixed(1) + 'px "IBM Plex Sans",system-ui,sans-serif';
+      c.fillText(String(k.agent.werk), bx, by + .5*S);
+    }
     c.restore();
   }
 

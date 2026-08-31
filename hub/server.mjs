@@ -378,6 +378,17 @@ const server = createServer(async (req,res)=>{
       await writeFile(DESK, JSON.stringify(parsed,null,2)+"\n");
       return send(res,200,'{"ok":true}');
     }
+    // een agent- of capaciteitsbestand teruglezen, zodat je in de hub kunt zien
+    // wat er echt in staat zonder een editor te openen
+    if(url.pathname === "/api/bestand"){
+      const f = url.searchParams.get("f") || "";
+      const toegestaan = /^(\.claude\/agents|workflows\/capabilities)\/[a-z0-9-]+\.md$/.test(f);
+      if(!toegestaan) return send(res,400,'{"error":"dit bestand mag je hier niet lezen"}');
+      const p2 = join(ROOT, f);
+      if(!p2.startsWith(ROOT)) return send(res,400,'{"error":"pad geweigerd"}');
+      if(!existsSync(p2)) return send(res,404,'{"error":"niet gevonden"}');
+      return send(res,200,JSON.stringify({ file:f, content: await readFile(p2,"utf8") }));
+    }
     if(url.pathname === "/api/draft"){
       const f = url.searchParams.get("f")||"";
       if(!/^[a-z0-9-]+\.md$/.test(f)) return send(res,400,'{"error":"ongeldige bestandsnaam"}');

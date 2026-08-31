@@ -443,6 +443,7 @@ export class IsoOffice {
         const a = self._raakAgent(p);
         self.hoverAgent = a ? a.id : null;
         self.hover = a ? null : self._naarTegel(p.x, p.y);
+        self.hoverKamer = a ? null : (self.hover ? (zoneOp(self.hover.x, self.hover.y) || {}).name || null : null);
         cv.style.cursor = a ? "grab" : "default";
       }
     };
@@ -655,9 +656,11 @@ export class IsoOffice {
     c.moveTo(p[0].x, p[0].y);
     for (let i = 1; i < 4; i++) c.lineTo(p[i].x, p[i].y);
     c.closePath();
-    c.strokeStyle = zn.kleur; c.globalAlpha = .5; c.lineWidth = 1.6*z; c.stroke();
+    const heet = this.hoverKamer === zn.name;
+    c.strokeStyle = zn.kleur; c.globalAlpha = heet ? .95 : .5;
+    c.lineWidth = (heet ? 2.4 : 1.6)*z; c.stroke();
     c.restore();
-    this._lichtPad(p, zn.kleur, 2.4*z, .42);
+    this._lichtPad(p, zn.kleur, (heet ? 4 : 2.4)*z, heet ? .8 : .42);
   }
 
   /* Kabelgoten met lopende stipjes: het werk stroomt naar het archief. */
@@ -983,6 +986,18 @@ export class IsoOffice {
       this._lichtBol(s.x, baseY - hoogte*.35, 9*z, a.color, .22);
     }
 
+    if (gekozen && !this.reduced){
+      /* een baken boven de gekozen agent, zodat je hem terugvindt */
+      const top = baseY - 150*z;
+      const g2 = c.createLinearGradient(s.x, top, s.x, baseY);
+      g2.addColorStop(0, a.color + "00"); g2.addColorStop(1, a.color + "3A");
+      c.save(); c.globalCompositeOperation = "lighter";
+      c.fillStyle = g2;
+      c.beginPath();
+      c.moveTo(s.x - 3*z, top); c.lineTo(s.x + 3*z, top);
+      c.lineTo(s.x + 13*z, baseY); c.lineTo(s.x - 13*z, baseY);
+      c.closePath(); c.fill(); c.restore();
+    }
     if (gekozen || a.gesleept){
       c.save();
       c.strokeStyle = a.gesleept ? T.wait : T.gold; c.lineWidth = 2.5*z;
@@ -1060,7 +1075,26 @@ export class IsoOffice {
       c.fillText(a.gedachte, s.x, by);
     }
 
-    if ((gekozen || this.hoverAgent === a.id) && zoom > .45){
+    if (this.hoverAgent === a.id && !gekozen && zoom > .45){
+      /* een kaartje bij de muis: naam, wat hij doet, en waar hij hoort */
+      const r1 = a.name, r2 = (a.statusTekst || a.status || "") + (a.dept ? " · " + a.dept : "");
+      c.font = "600 " + (10.5*z).toFixed(1) + 'px "IBM Plex Mono",ui-monospace,monospace';
+      const w1 = c.measureText(r1).width;
+      c.font = (9.5*z).toFixed(1) + 'px "IBM Plex Mono",ui-monospace,monospace';
+      const w2 = c.measureText(r2).width;
+      const w = Math.max(w1, w2) + 18*z, hh = 34*z, ly = a._voet + 12*z;
+      c.fillStyle = "rgba(9,15,28,.94)";
+      c.beginPath(); c.roundRect(s.x - w/2, ly, w, hh, 4*z); c.fill();
+      c.strokeStyle = a.color + "88"; c.lineWidth = 1; c.stroke();
+      c.fillStyle = a.color; c.fillRect(s.x - w/2, ly, 2*z, hh);
+      c.fillStyle = T.text;
+      c.font = "600 " + (10.5*z).toFixed(1) + 'px "IBM Plex Mono",ui-monospace,monospace';
+      c.fillText(r1, s.x, ly + 12*z);
+      c.fillStyle = T.dim;
+      c.font = (9.5*z).toFixed(1) + 'px "IBM Plex Mono",ui-monospace,monospace';
+      c.fillText(r2, s.x, ly + 24*z);
+    }
+    if (gekozen && zoom > .45){
       const label = a.name;
       c.font = "600 " + (10.5*z).toFixed(1) + 'px "IBM Plex Mono",ui-monospace,monospace';
       const w = c.measureText(label).width + 13*z, ly = a._voet + 13*z;
