@@ -24,7 +24,7 @@
   <nav id="rail" aria-label="Onderdelen">
     <div class="merk" title="Validatiedesk"><span>VD</span></div>
     <button data-view="dash"  aria-current="true"><i><svg viewBox="0 0 20 20" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="2.5" y="2.5" width="6" height="7" rx="1.2"/><rect x="11.5" y="2.5" width="6" height="4" rx="1.2"/><rect x="2.5" y="12.5" width="6" height="5" rx="1.2"/><rect x="11.5" y="8.5" width="6" height="9" rx="1.2"/></svg></i><span>Overzicht</span></button>
-    <button data-view="map"   aria-current="false"><i><svg viewBox="0 0 20 20" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M10 2.6 18 7l-8 4.4L2 7z"/><path d="M2 11.4 10 15.8 18 11.4" opacity=".55"/></svg></i><span>Vloer</span></button>
+    <button data-view="map"   aria-current="false"><i><svg viewBox="0 0 20 20" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M10 2.6 18 7l-8 4.4L2 7z"/><path d="M2 11.4 10 15.8 18 11.4" opacity=".55"/></svg></i><span>Stad</span></button>
     <button data-view="ster"  aria-current="false"><i><svg viewBox="0 0 20 20" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="14.5" r="2.4"/><circle cx="4.5" cy="5" r="1.9"/><circle cx="15.5" cy="5" r="1.9"/><path d="M5.6 6.6 9 12.4M14.4 6.6 11 12.4" stroke-linecap="round"/></svg></i><span>Sterren</span></button>
     <button data-view="hier"  aria-current="false"><i><svg viewBox="0 0 20 20" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="7" y="2.4" width="6" height="4" rx="1"/><rect x="2" y="13.6" width="5.6" height="4" rx="1"/><rect x="12.4" y="13.6" width="5.6" height="4" rx="1"/><path d="M10 6.4v3.4M4.8 13.6v-2.2h10.4v2.2M10 9.8v1.6"/></svg></i><span>Structuur</span></button>
     <button data-view="tools" aria-current="false"><i><svg viewBox="0 0 20 20" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="10" cy="10" r="2.6"/><path d="M10 1.8v2.4M10 15.8v2.4M18.2 10h-2.4M4.2 10H1.8M15.8 4.2l-1.7 1.7M5.9 14.1l-1.7 1.7M15.8 15.8l-1.7-1.7M5.9 5.9 4.2 4.2"/></svg></i><span>Gereedschap</span></button>
@@ -56,18 +56,18 @@
       <!-- de vloer -->
       <section class="zicht" data-zicht="map">
         <div class="stage" id="stage">
-          <canvas id="vloer" aria-label="Isometrische plattegrond van het kantoor"></canvas>
-          <div class="hud" id="hud"></div>
+          <canvas id="vloer" aria-label="Isometrische stad: elk gebouw is een agent"></canvas>
           <div class="kamers" id="kamers"></div>
           <div class="vloerknoppen">
             <button id="bDemo" aria-pressed="false" title="Laat de agents uit zichzelf rondlopen. Verzonnen gedrag.">Rondloop</button>
-            <button id="bFit" title="Hele vloer in beeld">Passend</button>
-            <a class="knopje" href="/vloer.html" title="Alleen de vloer, volledig scherm">Vol scherm</a>
+            <button id="bFit" title="Hele stad in beeld">Passend</button>
+            <a class="knopje" href="/vloer.html" title="Alleen de stad, volledig scherm">Vol scherm</a>
           </div>
           <div class="ticker" id="ticker" aria-hidden="true"></div>
           <p class="vloerlabel" id="vloerlabel">
-            <b>Weergave, geen meting.</b> Deze vloer toont wat er in
-            <code>desk.json</code> en <code>drafts/</code> staat.
+            <b>Weergave, geen meting.</b> Elk gebouw is een agent uit
+            <code>.claude/agents</code>. De ramen branden als er in
+            <code>desk.json</code> werk voor hem openstaat.
           </p>
         </div>
       </section>

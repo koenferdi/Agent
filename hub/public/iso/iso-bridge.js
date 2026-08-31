@@ -1,7 +1,7 @@
-/* iso-bridge.js — koppelt de hub aan de vloer.
+/* iso-bridge.js — koppelt de hub aan de stad.
  *
  * De motor weet niet wat een agent is. Dit bestand wel:
- *   - het geeft elke agent uit .claude/agents een bureau, een kleur en een naam
+ *   - het geeft elke agent uit .claude/agents een kavel, een kleur en een naam
  *   - het leidt de status af uit hub/desk.json, precies zoals de panelen dat doen
  *   - het vergelijkt twee opeenvolgende /api/state-antwoorden en maakt van elk
  *     verschil een regel voor de feed
@@ -11,7 +11,7 @@
  */
 import { IsoOffice } from "./iso-office.js";
 import { AGENT_COLOR, AGENT_COLOR_VLOER, THEME } from "./iso-theme.js";
-import { DESKS, ZONES, AFDELINGEN, bureausVan } from "./iso-map.js";
+import { ZONES, KAVELS, KAVEL_VOLGORDE, TOREN, zoneVan } from "./iso-map.js";
 
 /* Wie zit waar. De nummers komen van de oude kaart, zodat 01 t/m 04 blijven kloppen. */
 export const AGENT_META = {
@@ -20,6 +20,12 @@ export const AGENT_META = {
   "strategy-analyst":    { no:"03", naam:"Strateeg",          kort:"ST" },
   "content-creator":     { no:"04", naam:"Contentmaker",      kort:"CM", offphase:true }
 };
+/* Agents buiten de vaste vier krijgen ook een eigen kleur, uit dezelfde
+ * gecontroleerde reeks. */
+const EXTRA = ["#26A697","#C9832F","#8465DC","#CC5A86","#4E9BE0","#59B26A",
+               "#D96B4A","#9F8FE8","#3FA0B5","#C75C9E","#B79A2E","#5F82D9"];
+export function kleurVoor(i){ return EXTRA[i % EXTRA.length]; }
+
 export function metaVan(id, i){
   return AGENT_META[id] || {
     no: String(101 + (i||0)).slice(1),
@@ -28,28 +34,23 @@ export function metaVan(id, i){
   };
 }
 
-/* Bij welke afdeling hoort een agent? Dat staat niet in de agent zelf maar in
- * de capaciteit die hij uitvoert: workflows/capabilities/*.md, veld done_by. */
-export function afdelingVan(state, id){
-  const c = (state.capabilities || []).find(c => c.done_by === id);
-  return c && AFDELINGEN.indexOf(c.department) >= 0 ? c.department : null;
+/* Elk kavel is van één agent. De volgorde van .claude/agents bepaalt wie
+ * waar komt te staan; zolang je niets weghaalt blijft iedereen op zijn plek. */
+export function kavelsToewijzen(state){
+  const uit = {};
+  (state.agents || []).forEach((a, i) => {
+    uit[a.id] = KAVEL_VOLGORDE[i % KAVEL_VOLGORDE.length];
+  });
+  return uit;
 }
 
-/* Wie zit waar. Agents van dezelfde afdeling delen een kamer; wie geen
- * capaciteit heeft, krijgt een vrij bureau waar plek is. */
-export function bureausToewijzen(state){
-  const vrij = new Map(AFDELINGEN.map(d => [d, bureausVan(d).slice()]));
-  const rest = [];
-  const uit = {};
-  for (const a of (state.agents || [])){
-    const dep = afdelingVan(state, a.id);
-    const lijst = dep ? vrij.get(dep) : null;
-    if (lijst && lijst.length) uit[a.id] = lijst.shift();
-    else rest.push(a.id);
-  }
-  const over = AFDELINGEN.flatMap(d => vrij.get(d));
-  rest.forEach((id, i) => { uit[id] = over[i % over.length] || 0; });
-  return uit;
+/* De regel onder de naam op het bord. Komt uit de description van de agent
+ * zelf, dus uit .claude/agents/<id>.md — niet verzonnen. */
+export function rolregel(a){
+  const d = String(a.description || "").replace(/\s+/g, " ").trim();
+  if (!d) return a.id;
+  const eerste = d.split(". ")[0] || d;
+  return eerste.length > 46 ? eerste.slice(0, 45).replace(/[ ,;:]$/, "") + "\u2026" : eerste;
 }
 
 export const STATUS_LABEL = {
@@ -104,19 +105,21 @@ export class IsoBridge {
   sync(state){
     const eerste = !this.vorige;
 
-    const bureaus = bureausToewijzen(state);
+    const kavels = kavelsToewijzen(state);
     const agents = (state.agents || []).map((a, i) => {
       const m = metaVan(a.id, i);
+      const st = statusVanAgent(state, a.id);
       return {
         id: a.id,
-        name: m.no + " " + m.naam,
+        name: m.no + " " + m.naam,     /* in de feed en het paneel */
+        short2: m.naam,                /* op het bord boven het gebouw */
+        rolTekst: rolregel(a),         /* de regel eronder */
         short: m.kort,
         role: a.id,
-        dept: afdelingVan(state, a.id),
-        desk: bureaus[a.id] || 0,
-        color: AGENT_COLOR_VLOER[a.id] || AGENT_COLOR[a.id] || THEME.busy,
-        status: statusVanAgent(state, a.id),
-        statusTekst: STATUS_LABEL[statusVanAgent(state, a.id)] || ""
+        desk: kavels[a.id] != null ? kavels[a.id] : i,
+        color: AGENT_COLOR_VLOER[a.id] || AGENT_COLOR[a.id] || kleurVoor(i),
+        status: st,
+        statusTekst: STATUS_LABEL[st] || ""
       };
     });
 
@@ -126,7 +129,6 @@ export class IsoBridge {
     if (!eerste) for (const a of agents) this.office.setStatus(a.id, a.status);
     this.office.setArchive((state.drafts || []).length);
     this.office.setZoneInfo(this._kamerinfo(state, agents));
-    this.office.setBorden(this._borden(state));
 
     if (eerste){
       const open = (state.desk && state.desk.briefs || [])
@@ -147,29 +149,18 @@ export class IsoBridge {
     }));
   }
 
-  /* Tekst achter de kamernaam. Alles hier is geteld, niet geschat. */
+  /* Tekst onder de naam op de borden bij de toren. Alles hier is geteld. */
   _kamerinfo(state, agents){
     const info = {};
-    for (const dep of AFDELINGEN){
-      const caps = (state.capabilities || []).filter(c => c.department === dep);
-      const mensen = agents.filter(a => a.dept === dep).length;
-      info[dep] = mensen
-        ? mensen + (mensen === 1 ? " agent" : " agents")
-        : (caps.length ? "geen agent · " + caps.length + " op papier" : "leeg");
-    }
     const n = (state.drafts || []).length;
-    info.archive = n ? n + (n === 1 ? " rapport" : " rapporten") : "leeg";
+    const bezig = agents.filter(a => a.status === "opgepakt").length;
+    info.plein = agents.length + (agents.length === 1 ? " agent" : " agents") +
+                 " \u00b7 " + n + (n === 1 ? " rapport" : " rapporten") +
+                 (bezig ? " \u00b7 " + bezig + " aan het werk" : "");
+    const open = (state.desk && state.desk.decisions || []).filter(d => !d.resolved).length;
+    info.meeting = open ? open + (open === 1 ? " beslissing aan jou" : " beslissingen aan jou")
+                        : "geen open beslissingen";
     return info;
-  }
-
-  /* Het opdrachtenbord per afdeling: capaciteiten en hoeveel er bemand zijn. */
-  _borden(state){
-    const uit = {};
-    for (const dep of AFDELINGEN){
-      const caps = (state.capabilities || []).filter(c => c.department === dep);
-      uit[dep] = { totaal: caps.length, live: caps.filter(c => c.done_by).length };
-    }
-    return uit;
   }
 
   /* Twee momentopnames naast elkaar. Elk verschil is een echte gebeurtenis. */
@@ -211,7 +202,7 @@ export class IsoBridge {
       if (!o){
         const v = d.meta && d.meta.verdict ? " — " + kort(d.meta.verdict, 40) : "";
         this.melding("Nieuw rapport in drafts/: " + kort(d.title, 50) + v, null, "echt");
-        this.office.floater("+1 rapport", middenVan("archive"), THEME.ok);
+        this.office.floater("+1 rapport", { x: TOREN.x, y: TOREN.y }, THEME.ok);
       } else if (o.modified !== d.modified){
         this.melding("Rapport bijgewerkt: " + kort(d.title, 50), null, "echt");
       }

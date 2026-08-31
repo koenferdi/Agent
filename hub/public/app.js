@@ -5,7 +5,6 @@
  */
 import { IsoBridge, metaVan, statusVanAgent, STATUS_LABEL } from "./iso/iso-bridge.js";
 import { AGENT_COLOR, THEME } from "./iso/iso-theme.js";
-import { ZONES as KAMERS } from "./iso/iso-map.js";
 import { Sterrenkaart } from "./iso/sterrenkaart.js";
 
 (function(){
@@ -683,12 +682,23 @@ function renderTicker(){
   if(t.dataset.inhoud !== rij){ t.innerHTML=nieuw; t.dataset.inhoud=rij; }
 }
 
-function renderKamers(){
-  var k=el("kamers"); if(!k || k.dataset.klaar) return;
-  k.innerHTML = KAMERS.map(function(z){
-    return '<button data-kamer="'+z.name+'">'+esc(z.label)+'</button>';
-  }).join("");
-  k.dataset.klaar = "1";
+/* De strook boven de stad: één chip per agent met waar hij mee bezig is.
+ * Klik erop en de camera gaat naar zijn gebouw. */
+function renderChips(){
+  var k=el("kamers"); if(!k) return;
+  var h="";
+  S.agents.forEach(function(a){
+    var p=meta(a.id), st=statusOf(a.id);
+    var bs=briefsOf(a.id).filter(function(b){return b.status==="nieuw"||b.status==="opgepakt";});
+    var taak = bs.length ? bs[0].topic : (st==="geleverd" ? "rapport klaar" : statusLabel(st));
+    if(taak.length>26) taak = taak.slice(0,25)+"\u2026";
+    h += '<button data-ga="'+esc(a.id)+'" aria-pressed="'+(sel===a.id?"true":"false")+'">'
+      +  '<i style="background:'+(SCOL[st]||"var(--idle)")+'"></i>'
+      +  '<b style="color:'+kleurVan(a.id)+'">'+esc(p.naam)+'</b>'
+      +  '<span>'+esc(taak)+'</span></button>';
+  });
+  if(!S.agents.length) h='<span class="leegchip">Nog geen agents. Zet ze neer via de wizard.</span>';
+  k.innerHTML=h;
 }
 
 function markeerSelectie(){
@@ -777,7 +787,7 @@ function werkbank(agentId){
 
 function renderPanel(){
   var a=S.agents.filter(function(x){return x.id===sel;})[0];
-  if(!a){el("panel").innerHTML='<div class="leeg-insp">Kies een agent op de vloer, in de sterrenkaart of in de tabel.</div>';return;}
+  if(!a){el("panel").innerHTML='<div class="leeg-insp">Kies een agent in de stad, in de sterrenkaart of in de tabel.</div>';return;}
   var p=meta(a.id), bs=briefsOf(a.id), st=statusOf(a.id), kl=kleurVan(a.id);
   var mijn = runlijst.filter(function(r){return r.agentId===a.id;});
   var tokens = mijn.reduce(function(n,r){return n+(r.tokensIn||0)+(r.tokensUit||0);},0);
@@ -850,11 +860,12 @@ function renderPanel(){
   }
 
   /* op de vloer */
-  h += '<div class="stuur"><span class="lbl">Op de vloer</span>'
-    + '<button data-stuur="desk">Bureau</button>'
-    + '<button data-stuur="coffee">Koffie</button>'
-    + '<button data-stuur="meeting">Overleg</button>'
-    + '<button data-stuur="lounge">Lounge</button></div>'
+  h += '<div class="stuur"><span class="lbl">In de stad</span>'
+    + '<button data-stuur="desk">Eigen gebouw</button>'
+    + '<button data-stuur="archive">Toren</button>'
+    + '<button data-stuur="meeting">Overlegzaal</button>'
+    + '<button data-stuur="coffee">Kiosk</button>'
+    + '<button data-stuur="lounge">Bankje</button></div>'
     + '<p class="note">Verplaatsen verandert alleen het beeld. Het werk verandert pas '
     + 'als de status van een opdracht wijzigt.</p>';
 
@@ -914,7 +925,7 @@ function zijkant(){
     +'<ol><li>Kies een agent en <b>zet hem aan het werk</b> met een concrete vraag.</li>'
     +'<li>Je ziet zijn stappen binnenkomen terwijl hij bezig is.</li>'
     +'<li>Het rapport landt in <code>drafts/</code> en verschijnt hiernaast.</li>'
-    +'<li>Op de vloer gaat hij zitten, werkt, en levert af.</li></ol>'
+    +'<li>In de stad gaan de ramen van zijn gebouw aan; het rapport gaat naar de toren.</li></ol>'
     +'<p class="note">Een agent hier draait <b>zonder gereedschap</b>: geen webtoegang, geen '
     +'bestanden openen. Hij werkt met wat in zijn prompt staat. Voor onderzoek met bronnen zet '
     +'je hem aan in Claude Code — daar heeft hij wel WebSearch en WebFetch. Wat je hier ziet '
@@ -1017,7 +1028,7 @@ function renderAll(){
   } else if(view === "map"){
     /* het doek was verborgen toen de camera zich instelde; opnieuw meten */
     if(vloer){ vloer.office._resize(); if(!vloer.office.zelfGezoomd) vloer.office.fit(); }
-    renderHud(); renderKamers(); renderTicker(); markeerSelectie(); renderPanel();
+    renderChips(); renderTicker(); markeerSelectie(); renderPanel();
   } else if(view === "ster"){
     var sb = el("sterbox");
     if(sb){ setupSterren(); sterren.setState(S); sterren._resize();
@@ -1109,8 +1120,9 @@ document.addEventListener("click",function(e){
   if(vt){ view=vt.dataset.view; renderAll(); return; }
   var cp=e.target.closest("[data-cap]");
   if(cp){ capSel=cp.dataset.cap; renderAll(); return; }
-  var km=e.target.closest("[data-kamer]");
-  if(km){ if(vloer) vloer.office.focusZone(km.dataset.kamer); return; }
+  var ga=e.target.closest("[data-ga]");
+  if(ga){ sel=ga.dataset.ga; if(vloer){ vloer.select(sel); vloer.focus(sel); }
+          markeerSelectie(); renderChips(); renderPanel(); return; }
   var st=e.target.closest("[data-stuur]");
   if(st){ if(vloer && sel) vloer.office.send(sel, st.dataset.stuur); return; }
   var t=e.target.closest("[data-pick]");

@@ -19,6 +19,22 @@ export const THEME = {
   paneel: "#151F35",      /* --panel   */
   lijn:   "#38496B",      /* --line-2  */
 
+  /* de stad: straat, kavel, gebouw */
+  straatA:  "#101B31",    /* asfalt, schaakbord licht */
+  straatB:  "#0D1729",    /* asfalt, schaakbord donker */
+  stoep:    "#1D2C4C",    /* de rand van een kavel */
+  gebouw:   "#23406E",    /* de romp van een gebouw */
+  gebouwDak:"#2C4E86",
+  gebouwLeeg:"#182642",   /* een kavel zonder agent */
+  raamAan:  "#FFC46B",    /* verlicht raam: er wordt gewerkt */
+  raamKoel: "#7FD8FF",    /* verlicht raam, koud: staat aan maar wacht */
+  raamUit:  "#2B4674",
+  groen:    "#2F8367",
+  stam:     "#3A2E24",
+  paal:     "#39496B",
+  lamplicht:"#9EC2FF",
+  grondgloed:"#B93AE0",   /* de magenta gloed onder de stad, uit het voorbeeld */
+
   /* meubels */
   bureau:      "#3C4E78",
   kastje:      "#2E3A58",

@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>Vloer · Validatiedesk</title>
+<title>Stad · Validatiedesk</title>
 <meta name="theme-color" content="#0B1220">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Vloer">
+<meta name="apple-mobile-web-app-title" content="Stad">
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="apple-touch-icon" href="/icoon-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -43,7 +43,7 @@ a{color:var(--gold)}
   backdrop-filter:blur(6px)}
 .knopje[aria-pressed="true"]{border-color:var(--wait);color:var(--wait);background:rgba(240,180,84,.14)}
 
-.hud{position:fixed;top:calc(50px + env(safe-area-inset-top));left:12px;z-index:3;display:flex;
+.hud{position:fixed;top:calc(52px + env(safe-area-inset-top));left:12px;z-index:3;display:flex;
   flex-wrap:wrap;gap:3px 12px;font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.06em;
   text-transform:uppercase;color:var(--ink-faint);background:rgba(11,18,32,.72);
   border:1px solid var(--line);border-radius:3px;padding:6px 10px;backdrop-filter:blur(6px);
@@ -51,9 +51,12 @@ a{color:var(--gold)}
 .hud b{color:var(--ink);font-weight:600}
 .hud b.ok{color:var(--ok)} .hud b.wait{color:var(--wait)} .hud b.busy{color:var(--busy)}
 
-.kamers{position:fixed;left:0;right:0;top:calc(88px + env(safe-area-inset-top));z-index:3;
+.kamers{position:fixed;left:0;right:0;top:calc(96px + env(safe-area-inset-top));z-index:3;
   display:flex;gap:5px;overflow-x:auto;padding:0 12px;scrollbar-width:none}
 .kamers::-webkit-scrollbar{display:none}
+.kamers button i{width:6px;height:6px;border-radius:99px;display:inline-block;margin-right:6px}
+.kamers button b{font-weight:600} .kamers button span{opacity:.75}
+.kamers .leegchip{font-family:"IBM Plex Mono",monospace;font-size:11px;color:#6B7A99;padding:6px 10px}
 .kamers button{flex:none;font-family:"IBM Plex Mono",monospace;font-size:11px;
   background:rgba(21,31,53,.9);border:1px solid var(--line-2);color:var(--ink-faint);
   border-radius:99px;padding:7px 12px;backdrop-filter:blur(6px)}
@@ -117,13 +120,13 @@ body.demo .label{border-left-color:var(--wait);color:var(--wait)}
 </style>
 </head>
 <body>
-<canvas id="vloer" aria-label="Isometrische plattegrond van het kantoor"></canvas>
+<canvas id="vloer" aria-label="Isometrische stad: elk gebouw is een agent"></canvas>
 
 <div class="hud" id="hud"></div>
 <div class="kamers" id="kamers"></div>
 
 <div class="bar">
-  <h1>VLOER</h1>
+  <h1>STAD</h1>
   <div class="rechts">
     <button class="knopje" id="bDemo" aria-pressed="false">Rondloop</button>
     <button class="knopje" id="bFit">Passend</button>
@@ -133,7 +136,7 @@ body.demo .label{border-left-color:var(--wait);color:var(--wait)}
 </div>
 
 <div class="melding">
-  <p class="label" id="label"><b>Weergave, geen meting.</b> Deze vloer toont wat er in desk.json en drafts/ staat.</p>
+  <p class="label" id="label"><b>Weergave, geen meting.</b> Elk gebouw is een agent uit .claude/agents. De ramen branden als er werk voor hem openstaat.</p>
   <div class="kaart" id="kaart">
     <div class="kop">
       <div class="no" id="kNo">--</div>
@@ -159,7 +162,6 @@ body.demo .label{border-left-color:var(--wait);color:var(--wait)}
 <script type="module">
 import { IsoBridge, metaVan, statusVanAgent, STATUS_LABEL } from "/iso/iso-bridge.js";
 import { AGENT_COLOR, THEME } from "/iso/iso-theme.js";
-import { ZONES } from "/iso/iso-map.js";
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -202,6 +204,7 @@ function openKaart(id){
 }
 
 function ticker(){
+  const t = $("ticker"); if(!t) return;   /* deze pagina heeft geen band */
   const items = [];
   (S.drafts||[]).forEach(d => {
     const v = d.meta && d.meta.verdict ? " · " + d.meta.verdict : "";
@@ -217,9 +220,9 @@ function ticker(){
     items.push({ k:"var(--idle)", t:"NOG GEEN AGENT <b>" + esc(c.title) + "</b>" }));
   if (!items.length) items.push({ k:"var(--idle)", t:"Nog niets te melden." });
   const rij = items.map(i => '<i><s style="background:' + i.k + '"></s>' + i.t + '</i>').join("");
-  if ($("ticker").dataset.inhoud !== rij){
-    $("ticker").innerHTML = '<div class="baan">' + rij + rij + '</div>';
-    $("ticker").dataset.inhoud = rij;
+  if (t.dataset.inhoud !== rij){
+    t.innerHTML = '<div class="baan">' + rij + rij + '</div>';
+    t.dataset.inhoud = rij;
   }
 }
 
@@ -233,18 +236,37 @@ function hud(){
     + `<span>Aan jou <b class="${jou?"wait":""}">${jou}</b></span>`;
 }
 
-$("kamers").innerHTML = ZONES.map(z => `<button data-kamer="${z.name}">${z.label}</button>`).join("");
-$("kamers").onclick = e => { const b = e.target.closest("[data-kamer]"); if(b) vloer.office.focusZone(b.dataset.kamer); };
+/* De strook: één chip per agent, met waar hij mee bezig is. Klikken brengt
+ * de camera naar zijn gebouw. */
+function chips(){
+  $("kamers").innerHTML = (S.agents||[]).map(a => {
+    const m = metaVan(a.id), st = statusVanAgent(S, a.id);
+    const bs = (S.desk.briefs||[]).filter(b => b.agent === a.id &&
+               (b.status === "nieuw" || b.status === "opgepakt"));
+    let taak = bs.length ? bs[0].topic : (STATUS_LABEL[st] || st);
+    if (taak.length > 24) taak = taak.slice(0,23) + "\u2026";
+    return `<button data-ga="${esc(a.id)}"><i style="background:${kleur(a.id)}"></i>`
+         + `<b>${esc(m.naam)}</b> <span>${esc(taak)}</span></button>`;
+  }).join("") || '<span class="leegchip">Nog geen agents.</span>';
+}
+$("kamers").onclick = e => {
+  const b = e.target.closest("[data-ga]");
+  if (b){ vloer.select(b.dataset.ga); vloer.focus(b.dataset.ga); openKaart(b.dataset.ga); }
+};
 
 async function lees(){
+  let d;
+  /* alleen het ophalen mag stilletjes mislukken: als de server even weg is
+   * blijft de stad staan. Een fout in het tekenen wil ik wél zien. */
   try {
     const r = await fetch("/api/state");
-    S = await r.json();
-    if(!S.desk) S.desk = { briefs:[], decisions:[] };
-    vloer.sync(S);
-    hud(); ticker();
-    if(sel) openKaart(sel);
-  } catch(e){ /* server even weg; de vloer blijft staan */ }
+    d = await r.json();
+  } catch(e){ return; }
+  S = d;
+  if(!S.desk) S.desk = { briefs:[], decisions:[] };
+  vloer.sync(S);
+  hud(); ticker(); chips();
+  if(sel) openKaart(sel);
 }
 
 $("kX").onclick = () => { $("kaart").classList.remove("open"); sel = null; vloer.select(null); };
@@ -254,7 +276,7 @@ $("bDemo").onclick = e => {
   document.body.classList.toggle("demo", demo);
   $("label").innerHTML = demo
     ? "<b>Rondloopmodus aan.</b> Wat de agents nu doen is verzonnen gedrag, geen meting."
-    : "<b>Weergave, geen meting.</b> Deze vloer toont wat er in desk.json en drafts/ staat.";
+    : "<b>Weergave, geen meting.</b> Elk gebouw is een agent uit .claude/agents. De ramen branden als er werk voor hem openstaat.";
   vloer.setDemo(demo);
 };
 $("bFit").onclick = () => { vloer.office.zelfGezoomd = false; vloer.office.fit(); };

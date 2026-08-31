@@ -413,8 +413,13 @@ function openBrowser(url){
             : platform() === "win32"  ? "cmd"
             : "xdg-open";
   const args = platform() === "win32" ? ["/c", "start", "", url] : [url];
-  try { spawn(cmd, args, { stdio: "ignore", detached: true }).unref(); }
-  catch { /* geen browser? de URL staat hieronder */ }
+  try {
+    const kind = spawn(cmd, args, { stdio: "ignore", detached: true });
+    /* op een server zonder xdg-open komt de fout pas ná spawn binnen; zonder
+     * deze regel valt de hele hub om op een machine zonder browser */
+    kind.on("error", () => {});
+    kind.unref();
+  } catch { /* geen browser? de URL staat hieronder */ }
 }
 
 function banner(port){

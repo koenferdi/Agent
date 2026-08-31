@@ -84,6 +84,58 @@ code{font-family:"IBM Plex Mono",monospace;font-size:.9em;background:var(--panee
 .stage{position:absolute;inset:0}
 #vloer{display:block;width:100%;height:100%;touch-action:none;background:var(--nacht)}
 .sterbox{position:absolute;inset:0;background:#080D18}
+
+/* ---------- de laag over de stad ---------- */
+/* Deze regels stonden er niet meer; de knoppen zweefden kaal over het doek. */
+.hud{position:absolute;left:14px;top:12px;z-index:3;display:flex;gap:14px;flex-wrap:wrap;
+  font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--ink-faint);
+  background:rgba(9,15,28,.72);border:1px solid var(--lijn);border-radius:6px;padding:8px 12px;
+  backdrop-filter:blur(6px)}
+.hud b{color:var(--ink);font-weight:600;margin:0 3px}
+.hud b.busy{color:var(--busy)} .hud b.ok{color:var(--ok)} .hud b.wait{color:var(--wait)}
+
+/* de chipstrook: één chip per agent, met waar hij mee bezig is */
+.kamers{position:absolute;left:0;right:0;bottom:38px;z-index:3;display:flex;gap:8px;
+  padding:8px 14px;overflow-x:auto;scrollbar-width:none;
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 14px,#000 calc(100% - 14px),transparent)}
+.kamers::-webkit-scrollbar{display:none}
+.kamers button{flex:none;display:flex;align-items:center;gap:7px;cursor:pointer;
+  background:rgba(9,15,28,.82);border:1px solid var(--lijn);border-radius:6px;padding:6px 11px;
+  font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--ink-faint);
+  backdrop-filter:blur(6px);transition:border-color .12s,background .12s}
+.kamers button:hover{border-color:var(--lijn-2);background:rgba(14,22,40,.92)}
+.kamers button[aria-pressed="true"]{border-color:var(--gold)}
+.kamers button i{width:6px;height:6px;border-radius:99px;flex:none}
+.kamers button b{font-weight:600;letter-spacing:.01em}
+.kamers button span{color:var(--ink-faint);opacity:.8}
+.kamers .leegchip{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--ink-faint);
+  background:rgba(9,15,28,.82);border:1px dashed var(--lijn);border-radius:6px;padding:6px 11px}
+
+.vloerknoppen{position:absolute;right:14px;top:12px;z-index:4;display:flex;gap:6px}
+.vloerknoppen button,.vloerknoppen .knopje{background:rgba(9,15,28,.82);border:1px solid var(--lijn);
+  border-radius:6px;color:var(--ink-soft);font-family:"IBM Plex Mono",monospace;font-size:11px;
+  padding:7px 11px;cursor:pointer;text-decoration:none;backdrop-filter:blur(6px)}
+.vloerknoppen button:hover,.vloerknoppen .knopje:hover{border-color:var(--lijn-2);color:var(--ink)}
+.vloerknoppen button[aria-pressed="true"]{border-color:var(--gold);color:var(--gold)}
+
+.ticker{position:absolute;left:0;right:0;bottom:0;z-index:3;height:30px;overflow:hidden;
+  background:rgba(9,15,28,.86);border-top:1px solid var(--lijn)}
+.ticker .baan{display:flex;gap:26px;align-items:center;height:100%;padding-left:14px;
+  white-space:nowrap;animation:schuif 64s linear infinite}
+.ticker i{display:flex;align-items:center;gap:7px;font-style:normal;
+  font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--ink-faint)}
+.ticker i b{color:var(--ink-soft);font-weight:500}
+.ticker s{width:5px;height:5px;border-radius:99px;text-decoration:none;flex:none}
+@keyframes schuif{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@media (prefers-reduced-motion:reduce){.ticker .baan{animation:none}}
+
+.vloerlabel{position:absolute;left:14px;bottom:76px;z-index:3;margin:0;max-width:330px;
+  background:rgba(9,15,28,.8);border:1px solid var(--lijn);border-radius:6px;padding:8px 11px;
+  font-size:11px;line-height:1.5;color:var(--ink-faint);backdrop-filter:blur(6px)}
+.vloerlabel b{color:var(--ink-soft)}
+.vloerlabel code{font-family:"IBM Plex Mono",monospace;color:var(--busy);font-size:10.5px}
+
+
 #sterren{display:block;width:100%;height:100%}
 
 /* ---------- inspecteur ---------- */
@@ -341,12 +393,15 @@ details.adder .body{padding:14px}
 
 /* ---------- telefoon: vloer en feed ---------- */
 @media (max-width:900px){
-  #vloer{height:clamp(300px,46vh,460px)}
+  /* het doek vult zijn zicht ook op een telefoon; een vaste hoogte liet
+     de onderste helft zwart */
   #feedlijst{max-height:34vh}
   .feed{border-left:0;border-top:1px solid var(--line)}
 }
 @media (max-width:700px){
-  .vloerlabel{font-size:10.5px;padding:6px 9px;left:8px;bottom:8px}
+  .vloerlabel{font-size:10.5px;padding:6px 9px;left:8px;right:8px;max-width:none;bottom:104px}
+  .kamers{bottom:34px;padding:6px 8px}
+  .kamers button{font-size:10.5px;padding:5px 9px}
   .vloerknoppen{top:8px;right:8px}
   .vloerknoppen button,.vloerknoppen .knopje{font-size:11px;padding:6px 9px}
   .feed h2{font-size:8px}
