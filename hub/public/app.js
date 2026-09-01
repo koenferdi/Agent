@@ -369,6 +369,17 @@ function renderDash(){
 
   var h = '';
 
+  /* Nog geen bedrijf? Dan is dat het eerste wat je moet doen, en dat zegt de
+   * hub ook — in plaats van je een leeg overzicht te laten zien. */
+  if(!(S.bedrijf && (S.bedrijf.bedrijf||{}).naam)){
+    h += '<section class="aanzet">'
+      + '<div><b>Je bent nog niet opgezet.</b>'
+      + '<p>Vul in wie je bent en wat voor bedrijf je begint. De hub stelt daarna een ploeg '
+      + 'agents voor die bij dat werk hoort, en zet ze als bestanden in deze workspace. '
+      + 'Duurt twee minuten.</p></div>'
+      + '<a class="knop-groot" href="/start.html">Onboarding starten →</a></section>';
+  }
+
   /* de kop: één groot getal, de stand van je bedrijf */
   h += '<section class="held">'
     + '<div class="held-cijfer"><b>' + bemand + '<span>/' + caps.length + '</span></b>'
@@ -791,6 +802,33 @@ function renderInstellingen(){
 
   var h = '<h2 class="blad-kop">Instellingen</h2>';
 
+  /* --- opzetten: de onboarding, en wat eruit kwam --- */
+  var gedaan = !!(b.bedrijf && bd.naam);
+  h += '<section class="ins' + (gedaan ? '' : ' ins-let') + '"><h3>Opzetten</h3>';
+  if(!gedaan){
+    h += '<p class="ins-uit">Je hebt de onboarding nog niet gedaan. Daarin vul je je naam in, '
+      + 'kies je een bedrijfsnaam (met generator), zeg je wat voor bedrijf het is, en stelt de hub '
+      + 'een ploeg agents voor die daarbij hoort. Elke agent wordt daarna een bestand in '
+      + '<code>.claude/agents/</code>.</p>'
+      + '<div class="tools"><a class="knop-groot" href="/start.html">Onboarding starten →</a></div>';
+  } else {
+    var soortLabel = (soorten.filter(function(so){ return so.id === bd.soort; })[0] || {}).label;
+    h += '<div class="profielrij">'
+      + '<div><span>Jij</span><b>' + esc(b.operator || "—") + '</b></div>'
+      + '<div><span>Bedrijf</span><b>' + esc(bd.naam || "—") + '</b></div>'
+      + '<div><span>Soort</span><b>' + esc(soortLabel || bd.soort || "—") + '</b></div>'
+      + '<div><span>Fase</span><b>' + esc(bd.fase || "—") + '</b></div>'
+      + '<div><span>Agents</span><b>' + S.agents.length + ' aangemaakt</b></div>'
+      + '<div><span>Aansluiting</span><b>' + esc(v.aansluiting || "nog niet gekozen") + '</b></div>'
+      + '</div>'
+      + '<div class="tools" style="margin-top:12px">'
+      + '<a class="knopje" href="/start.html">Onboarding opnieuw doorlopen</a>'
+      + '<a class="knopje" href="/start.html">Agents erbij zetten</a></div>'
+      + '<p class="note">Opnieuw doorlopen is veilig: agents die er al staan worden niet '
+      + 'overschreven, en je bedrijfsgegevens worden alleen bijgewerkt.</p>';
+  }
+  h += '</section>';
+
   /* --- waar draaien ze op --- */
   h += '<section class="ins"><h3>Waar de agents op draaien</h3>'
     + '<div class="ins-rij"><div class="ins-kaart' + (cc.beschikbaar ? " ja" : "") + '">'
@@ -799,6 +837,18 @@ function renderInstellingen(){
     + '<span class="staat ' + (cc.beschikbaar ? "ok" : "uit") + '">'
     + (cc.beschikbaar ? "gevonden · " + esc(cc.versie || "") : "niet gevonden" + (cc.reden ? " · " + esc(cc.reden) : ""))
     + '</span></div>';
+
+  var gratis = mod.filter(function(m){ return m.bruikbaar && (m.gratis || m.abonnement); });
+  h += '<div class="ins-kaart' + (gratis.length ? " ja" : "") + '"><b>Kost het iets?</b>'
+    + '<p>' + (gratis.length
+        ? gratis.length + ' model' + (gratis.length === 1 ? "" : "len") + ' die je nu kunt gebruiken '
+          + 'zonder aparte rekening: ' + esc(gratis.slice(0,3).map(function(m){ return m.naam; }).join(", "))
+          + (gratis.length > 3 ? " en meer" : "") + '.'
+        : 'Nog niets gratis bruikbaar. Drie routes die niets kosten: een gratis sleutel bij '
+          + 'OpenRouter (modellen met :free), een gratis sleutel bij Groq, of '
+          + '<code>ollama serve</code> op deze machine.') + '</p>'
+    + '<span class="staat ' + (gratis.length ? "ok" : "uit") + '">'
+    + (gratis.length ? "je kunt draaien zonder kosten" : "kies hieronder een sleutel") + '</span></div>';
 
   h += '<div class="ins-kaart"><b>Standaardmodel</b>'
     + '<p>Wat de hub kiest als je zelf niets kiest bij een run.</p>'
@@ -844,7 +894,7 @@ function renderInstellingen(){
     + '</select></div>'
     + '</div><div class="tools" style="margin-top:12px">'
     + '<button id="bBedrijf" class="primary">Bewaren</button>'
-    + '<a class="knopje" href="/start.html">Agents erbij zetten →</a></div></section>';
+    + '</div></section>';
 
   /* --- uiterlijk --- */
   h += '<section class="ins"><h3>Uiterlijk van de stad</h3>'

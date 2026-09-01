@@ -791,3 +791,21 @@ details.adder .body{padding:14px}
 .nustrook .vst{padding:12px 13px}
 .nustrook .vst h3{font-size:13.5px;margin:7px 0 4px}
 .nustrook .vst p{font-size:12px}
+
+/* ---------- opzetten: onboarding in beeld ---------- */
+.aanzet{display:flex;gap:18px;align-items:center;flex-wrap:wrap;
+  background:linear-gradient(120deg,color-mix(in srgb,var(--gold) 12%,var(--paneel)),var(--paneel));
+  border:1px solid var(--gold);border-radius:10px;padding:18px 20px;margin-bottom:16px}
+.aanzet b{display:block;font-size:16px;margin-bottom:5px}
+.aanzet p{margin:0;font-size:13px;line-height:1.6;color:var(--ink-soft);max-width:66ch}
+.knop-groot{display:inline-block;background:var(--gold);color:#141C2E;border:0;border-radius:7px;
+  padding:12px 20px;font-size:14px;font-weight:600;text-decoration:none;white-space:nowrap}
+.knop-groot:hover{filter:brightness(1.08)}
+.ins.ins-let{border-color:var(--gold)}
+.profielrij{display:grid;gap:1px;grid-template-columns:1fr;background:var(--lijn);
+  border:1px solid var(--lijn);border-radius:7px;overflow:hidden;margin-top:10px}
+@media (min-width:700px){.profielrij{grid-template-columns:1fr 1fr 1fr}}
+.profielrij div{background:var(--nacht-2);padding:9px 12px}
+.profielrij span{display:block;font-family:"IBM Plex Mono",monospace;font-size:10px;
+  letter-spacing:.09em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:3px}
+.profielrij b{font-size:13.5px;font-weight:500;color:var(--ink-soft)}

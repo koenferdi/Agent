@@ -356,14 +356,23 @@ function toonAansluiting(){
                           : "nog geen sleutel gezet",
         metSleutel.length ? "ja" : "nee")
     + kaart("gratis", "Eerst gratis proberen",
-        "Een gratis model via OpenRouter of Groq, of een lokale ollama op deze machine. "
-        + "Langzamer en minder scherp, maar je kunt meteen kijken of het werkt.",
-        gratisModel.length ? gratisModel.length + " gratis model(len) bruikbaar"
-                           : "nog niets gratis bruikbaar — zet een sleutel bij OpenRouter of Groq",
+        "Drie routes die je niets kosten:<br>"
+        + "<b>1.</b> OpenRouter — gratis account, sleutel halen, en de modellen met "
+        + "<code>:free</code> erachter kosten niets. "
+        + "<a href='https://openrouter.ai/keys' target='_blank' rel='noopener'>sleutel halen ↗</a><br>"
+        + "<b>2.</b> Groq — gratis account met een royaal maandtegoed. "
+        + "<a href='https://console.groq.com/keys' target='_blank' rel='noopener'>sleutel halen ↗</a><br>"
+        + "<b>3.</b> <code>ollama serve</code> op deze machine — geen account, geen sleutel, "
+        + "alleen je eigen processor.",
+        gratisModel.length ? gratisModel.length + " gratis model(len) staan klaar"
+                           : "nog niets gratis bruikbaar — kies hierboven een route",
         gratisModel.length ? "ja" : "nee");
 
   $("sleutelveld").classList.toggle("aan", aansluiting !== "claudecode");
-  $("fAanbieder").innerHTML = aanbieders.map(a =>
+  const eerst = aansluiting === "gratis" ? ["openrouter","groq"] : [];
+  const gesorteerd = aanbieders.slice().sort((x,y) =>
+    (eerst.indexOf(y.id) - eerst.indexOf(x.id)));
+  $("fAanbieder").innerHTML = gesorteerd.map(a =>
     '<option value="' + a.id + '">' + esc(a.naam) + (a.heeft ? " · staat er" : "") + '</option>').join("");
 }
 
