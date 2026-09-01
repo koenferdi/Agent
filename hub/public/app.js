@@ -6,7 +6,7 @@
 import { IsoBridge, metaVan, statusVanAgent, STATUS_LABEL } from "./iso/iso-bridge.js";
 import { AGENT_COLOR, THEME } from "./iso/iso-theme.js";
 import { Sterrenkaart } from "./iso/sterrenkaart.js";
-import { berekenWelvaart, NIVEAU_LABEL, MIJLPALEN } from "./iso/welvaart.js";
+import { berekenWelvaart, NIVEAU_LABEL } from "./iso/welvaart.js";
 import { THEMAS } from "./iso/iso-theme.js";
 
 (function(){
@@ -26,6 +26,8 @@ var capSel = null;           // geselecteerde capaciteit in de hierarchie
 var saveTimer=null;
 var vloer = null;            // de IsoBridge
 var soorten = [];            // soorten bedrijf uit de catalogus
+var voorstellenLijst = [];   // wat de hub nu voorstelt te doen
+var verborgenAantal = 0;
 var ververstijd = 20000, ververser = null;
 var sterren = null;          // de sterrenkaart, pas gebouwd als je het tabblad opent
 var demoAan = false;
@@ -67,6 +69,7 @@ function load(){
     stuurWelvaart();
     pasVoorkeurenToe();
     renderAll();
+    laadVoorstellen();
   }).catch(function(e){ pill("server niet bereikbaar","err"); console.error(e); });
 }
 function save(){
@@ -101,6 +104,18 @@ function setupVloer(){
 }
 
 /* ---------- modellen ---------- */
+/* Wat is er nu te doen? De server rekent het uit uit de echte stand. */
+function laadVoorstellen(){
+  return fetch("/api/voorstellen").then(function(r){return r.json();})
+    .then(function(d){
+      voorstellenLijst = d.voorstellen || [];
+      verborgenAantal = ((S.desk || {}).verborgen || []).length;
+      if(view === "werk") renderWerkblad();
+      if(view === "dash") renderDash();
+    })
+    .catch(function(){});
+}
+
 function laadSoorten(){
   return fetch("/api/catalogus").then(function(r){return r.json();})
     .then(function(d){ soorten = d.soorten || []; })
@@ -291,8 +306,15 @@ function dagenTerug(n){
   return uit;
 }
 
-/* De stand van het bedrijf: één niveau, en precies waarom. De stad reageert
- * hierop, dus het moet navolgbaar zijn — geen cijfer uit de lucht. */
+/* De stand van het bedrijf: één niveau, en precies waarom. Alles hieronder is
+ * geteld uit je eigen bestanden — er valt niets aan te vinken. Doe je werk,
+ * dan loopt het cijfer op. */
+var GROEP = {
+  ploeg:    { kop:"Je ploeg",   uit:"Agents en capaciteiten" },
+  werk:     { kop:"Het werk",   uit:"Opdrachten en runs" },
+  uitkomst: { kop:"Wat het oplevert", uit:"Rapporten, besluiten, goedgekeurd werk" }
+};
+
 function standKaart(){
   var w = welvaart, pips = "";
   for (var i = 0; i <= 5; i++)
@@ -300,35 +322,31 @@ function standKaart(){
 
   var h = '<section class="stand">'
     + '<div class="stand-kop">'
-    + '<div><b>Niveau ' + w.niveau + '</b><span>van 5 · ' + esc(NIVEAU_LABEL[w.niveau] || "") + '</span></div>'
+    + '<div class="stand-titel"><b>Niveau ' + w.niveau + '</b>'
+    + '<span>van 5 · ' + esc(NIVEAU_LABEL[w.niveau] || "") + '</span></div>'
     + '<div class="pips">' + pips + '</div>'
     + '</div>'
-    + '<p class="stand-uit">' + w.punten + ' van ' + w.max + ' punten. '
-    + (w.nogNodig ? 'Nog ' + w.nogNodig + ' tot het volgende niveau.' : 'Hoger dan dit gaat niet.')
-    + ' Hoe hoger, hoe voller de stad: licht, groen, vlaggen, en agents die er beter bij lopen.</p>'
-    + '<ul class="stand-lijst">';
+    + '<p class="stand-uit">' + w.punten + ' van ' + w.max + ' signalen gehaald'
+    + (w.nogNodig ? ' · nog ' + w.nogNodig + ' tot niveau ' + (w.niveau + 1) : ' · dit is de top')
+    + '. Alles hier is geteld uit je bestanden: er valt niets zelf aan te vinken. '
+    + 'Hoe hoger het niveau, hoe voller de stad.</p>'
+    + '<div class="standgroepen">';
 
-  w.regels.forEach(function(r){
-    var kn = r.mijlpaal
-      ? '<button data-mijlpaal="' + esc(r.mijlpaal) + '" aria-pressed="' + (r.gehaald?"true":"false") + '">'
-        + (r.gehaald ? "✓" : "+") + '</button>'
-      : '<i>' + (r.gehaald ? "✓" : "·") + '</i>';
-    h += '<li class="' + (r.gehaald ? "ja" : "nee") + (r.mijlpaal ? " mijl" : "") + '">'
-       + kn + '<span>' + esc(r.tekst) + '</span>'
-       + '<em>' + esc(r.nu) + '</em></li>';
+  Object.keys(GROEP).forEach(function(g){
+    var rij = w.regels.filter(function(r){ return r.groep === g; });
+    var gehaald = rij.filter(function(r){ return r.gehaald; }).length;
+    h += '<div class="standgroep"><div class="sg-kop"><b>' + esc(GROEP[g].kop) + '</b>'
+      + '<span>' + gehaald + '/' + rij.length + '</span></div>'
+      + '<div class="sg-balk">' + meter(gehaald, rij.length, "var(--busy)") + '</div>'
+      + '<ul>' + rij.map(function(r){
+          return '<li class="' + (r.gehaald ? "ja" : "nee") + '">'
+            + '<i>' + (r.gehaald ? "✓" : "") + '</i>'
+            + '<span>' + esc(r.tekst) + '</span>'
+            + '<em>' + esc(r.nu) + '</em></li>';
+        }).join("") + '</ul></div>';
   });
 
-  return h + '</ul></section>';
-}
-
-function zetMijlpaal(id){
-  var nu = ((S.bedrijf || {}).mijlpalen || []).slice();
-  var i = nu.indexOf(id);
-  if(i >= 0) nu.splice(i,1); else nu.push(id);
-  fetch("/api/bedrijf", { method:"POST", headers:{"content-type":"application/json"},
-    body: JSON.stringify({ mijlpalen: nu }) })
-    .then(function(r){ if(!r.ok) throw 0; return load(); })
-    .catch(function(){ pill("mijlpaal niet opgeslagen","err"); });
+  return h + '</div></section>';
 }
 
 function renderDash(){
@@ -360,6 +378,15 @@ function renderDash(){
     + '</section>';
 
   h += standKaart();
+
+  /* wat nu: de drie belangrijkste voorstellen, met de knop erbij */
+  if(voorstellenLijst.length){
+    h += '<div class="blad-sectie">Wat nu <span class="tel">' + voorstellenLijst.length + '</span>'
+       + '<button class="terughaal" data-view="werk">alles bekijken →</button></div>'
+       + '<div class="nustrook">'
+       + voorstellenLijst.slice(0,3).map(function(v){ return voorstelKaart(v, true); }).join("")
+       + '</div>';
+  }
 
   /* tegels */
   h += '<div class="tegels">'
@@ -553,12 +580,148 @@ function laadRuns(){
     .catch(function(){});
 }
 
+/* ---------- wat nu te doen is ----------
+ * Elk voorstel wijst naar een bestand, een opdracht of een agent die er echt
+ * is. De knoppen doen ook echt iets: draaien start een run, keuren verplaatst
+ * het rapport naar outputs/.
+ */
+var SOORT_LABEL = {
+  keuren:"nakijken", beslissen:"aan jou", starten:"klaar om te draaien",
+  leeg:"stilstand", onbemand:"nog geen agent", opvolgen:"vervolg", stil:"rust"
+};
+
+function voorstelKaart(v, compact){
+  var h = '<article class="vst v-' + v.soort + '">'
+    + '<div class="vst-kop">'
+    + '<span class="vst-merk">' + esc(SOORT_LABEL[v.soort] || v.soort) + '</span>'
+    + (v.agent ? '<span class="vst-wie"><i style="background:' + kleurVan(v.agent) + '"></i>'
+        + esc(meta(v.agent).naam) + '</span>' : '')
+    + '<button class="vst-weg" data-weg="' + esc(v.id) + '" title="Wegleggen">&times;</button>'
+    + '</div>'
+    + '<h3>' + esc(v.titel) + '</h3>'
+    + '<p>' + esc(v.waarom) + '</p>';
+
+  if(v.opdracht && !compact)
+    h += '<div class="vst-opdracht">' + esc(v.opdracht) + '</div>';
+
+  /* een beslissing beantwoord je hier meteen */
+  if(v.soort === "beslissen" && !compact){
+    var id = v.id.slice(8);
+    h += '<div class="vst-knoppen"><input data-ans="' + esc(id) + '" placeholder="Jouw besluit">'
+      + '<button class="primary" data-resolve="' + esc(id) + '">Vastleggen</button></div></article>';
+    return h;
+  }
+
+  var knoppen = [];
+  if(v.acties.indexOf("draaien") >= 0)
+    knoppen.push('<button class="primary" data-doe="draaien" data-v="' + esc(v.id) + '">Nu draaien</button>');
+  if(v.acties.indexOf("keuren") >= 0)
+    knoppen.push('<button class="primary" data-doe="keuren" data-v="' + esc(v.id) + '">Goedkeuren</button>');
+  if(v.acties.indexOf("lezen") >= 0 && v.bestand)
+    knoppen.push('<button data-read="' + esc(v.bestand) + '">Lezen</button>');
+  if(v.acties.indexOf("afkeuren") >= 0)
+    knoppen.push('<button data-doe="afkeuren" data-v="' + esc(v.id) + '">Terug naar de agent</button>');
+  if(v.acties.indexOf("opdracht") >= 0)
+    knoppen.push('<button data-doe="opdracht" data-v="' + esc(v.id) + '">Op de desk zetten</button>');
+  if(v.acties.indexOf("opzetten") >= 0)
+    knoppen.push('<a class="knopje" href="/start.html">Agent erbij zetten →</a>');
+
+  if(knoppen.length) h += '<div class="vst-knoppen">' + knoppen.join("") + '</div>';
+  return h + '</article>';
+}
+
+function voorstelVan(id){
+  return voorstellenLijst.filter(function(v){ return v.id === id; })[0] || null;
+}
+
+function doeVoorstel(id, actie){
+  var v = voorstelVan(id); if(!v) return;
+
+  if(actie === "draaien"){
+    if(run && run.bezig){ pill("er draait er al een","err"); return; }
+    var m = (modellen.modellen || []).filter(function(x){ return x.bruikbaar; })[0];
+    if(!m){ pill("geen bruikbaar model","err"); view = "instel"; renderAll(); return; }
+    sel = v.agent; markeerSelectie(); renderPanel();
+    startRun(v.agent, v.opdracht, (voorkeuren().model || (modellen.standaard || m.id)));
+    toonInspecteur("agent");
+    return;
+  }
+
+  if(actie === "opdracht"){
+    S.desk.briefs.push({ id:"b-"+uid(), agent:v.agent, topic:v.opdracht,
+      geo:"", decision:"", status:"nieuw", gezet:new Date().toISOString(), findings:[] });
+    save(); pill("op de desk gezet","ok");
+    setTimeout(laadVoorstellen, 600);
+    return;
+  }
+
+  if(actie === "keuren" || actie === "afkeuren"){
+    var reden = "";
+    if(actie === "afkeuren"){
+      reden = prompt("Waarom gaat dit terug? Eén zin, die gaat mee als aantekening.");
+      if(reden === null) return;
+    }
+    fetch("/api/keur", { method:"POST", headers:{"content-type":"application/json"},
+      body: JSON.stringify({ file: v.bestand, afkeuren: actie === "afkeuren", reden: reden }) })
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if(d.error) throw new Error(d.error);
+        pill(actie === "keuren" ? "goedgekeurd naar outputs/" : "terug naar de agent", "ok");
+        return load();
+      })
+      .then(laadVoorstellen)
+      .catch(function(e){ pill("mislukt: " + e.message, "err"); });
+    return;
+  }
+}
+
+function legWeg(id, terug){
+  fetch("/api/voorstel", { method:"POST", headers:{"content-type":"application/json"},
+    body: JSON.stringify({ id: id, terug: !!terug }) })
+    .then(function(){ return load(); })
+    .then(laadVoorstellen);
+}
+
 function renderWerkblad(){
   var doel = el("werkblad"); if(!doel) return;
   var h = '<h2 class="blad-kop">Werk</h2>'
-    + '<p class="blad-uit">Wat er gedraaid heeft, wat er ligt, en wat er op jou wacht.</p>';
+    + '<p class="blad-uit">Wat er nu te doen is, wat er loopt, en wat er gedraaid heeft. '
+    + 'Elk voorstel hieronder komt uit je eigen bestanden.</p>';
 
-  h += '<div class="blad-sectie">Runs</div>';
+  /* wat nu */
+  h += '<div class="blad-sectie">Wat nu'
+    + (voorstellenLijst.length ? ' <span class="tel">' + voorstellenLijst.length + '</span>' : '')
+    + (verborgenAantal ? '<button class="terughaal" data-terug="alles">' + verborgenAantal
+        + ' weggelegd terughalen</button>' : '')
+    + '</div>';
+  if(!voorstellenLijst.length)
+    h += '<div class="empty"><b>Niets open.</b> Elke opdracht is gedraaid, elk rapport is nagekeken '
+       + 'en elke capaciteit heeft een agent. Zet er iets nieuws bij, of laat het even rusten.</div>';
+  else h += '<div class="vstlijst">' + voorstellenLijst.map(function(v){
+      return voorstelKaart(v, false); }).join("") + '</div>';
+
+  /* lopende opdrachten */
+  var lopend = S.desk.briefs.filter(function(b){ return b.status !== "goedgekeurd"; });
+  h += '<div class="blad-sectie">Opdrachten op de desk'
+    + (lopend.length ? ' <span class="tel">' + lopend.length + '</span>' : '') + '</div>';
+  if(!lopend.length) h += '<div class="empty"><b>De desk is leeg.</b></div>';
+  else {
+    h += '<div class="card">';
+    lopend.forEach(function(b){
+      h += '<div class="runrij">'
+        + '<span class="wie"><span class="stip" style="background:' + kleurVan(b.agent) + '"></span>'
+        + esc(meta(b.agent).naam) + '</span>'
+        + '<span class="wat">' + esc(b.topic) + '</span>'
+        + '<span class="cijfers"><span class="chip ' + esc(b.status) + '">'
+        + esc(statusLabel(b.status)) + '</span></span>'
+        + (b.draft ? '<button class="quiet" data-read="' + esc(b.draft) + '">lezen</button>' : '')
+        + '</div>';
+    });
+    h += '</div>';
+  }
+
+  h += '<div class="blad-sectie">Runs'
+    + (runlijst.length ? ' <span class="tel">' + runlijst.length + '</span>' : '') + '</div>';
   if(!runlijst.length) h += '<div class="empty"><b>Nog niets gedraaid.</b> Kies een agent en zet hem aan het werk.</div>';
   else {
     h += '<div class="card">';
@@ -681,16 +844,6 @@ function renderInstellingen(){
     + '</div><div class="tools" style="margin-top:12px">'
     + '<button id="bBedrijf" class="primary">Bewaren</button>'
     + '<a class="knopje" href="/start.html">Agents erbij zetten →</a></div></section>';
-
-  /* --- mijlpalen --- */
-  h += '<section class="ins"><h3>Mijlpalen</h3>'
-    + '<p class="ins-uit">Deze vink je zelf aan. De hub kan niet zien of je een klant hebt — '
-    + 'dat staat nergens in je bestanden. Elke mijlpaal is een punt voor het niveau van je stad.</p>'
-    + '<div class="mijlrij">' + MIJLPALEN.map(function(m){
-        var aan = ((b.mijlpalen || []).indexOf(m.id) >= 0);
-        return '<button data-mijlpaal="' + esc(m.id) + '" class="mijl' + (aan ? " aan" : "") + '">'
-          + '<i>' + (aan ? "✓" : "+") + '</i>' + esc(m.label) + '</button>';
-      }).join("") + '</div></section>';
 
   /* --- uiterlijk --- */
   h += '<section class="ins"><h3>Uiterlijk van de stad</h3>'
@@ -1418,6 +1571,15 @@ document.addEventListener("click",function(e){
   if(vt){ view=vt.dataset.view; renderAll(); return; }
   var cp=e.target.closest("[data-cap]");
   if(cp){ capSel=cp.dataset.cap; renderAll(); return; }
+  var doe=e.target.closest("[data-doe]");
+  if(doe){ doeVoorstel(doe.dataset.v, doe.dataset.doe); return; }
+  var weg=e.target.closest("[data-weg]");
+  if(weg){ legWeg(weg.dataset.weg, false); return; }
+  var terug=e.target.closest("[data-terug]");
+  if(terug){
+    ((S.desk || {}).verborgen || []).slice().forEach(function(id){ legWeg(id, true); });
+    return;
+  }
   var th=e.target.closest("[data-thema]");
   if(th){ bewaarVoorkeur("thema", th.dataset.thema); return; }
   var sk=e.target.closest("[data-schakel]");
@@ -1454,8 +1616,6 @@ document.addEventListener("click",function(e){
       .finally(function(){ knop.disabled = false; });
     return;
   }
-  var mp=e.target.closest("[data-mijlpaal]");
-  if(mp){ zetMijlpaal(mp.dataset.mijlpaal); return; }
   var ga=e.target.closest("[data-ga]");
   if(ga){ sel=ga.dataset.ga; if(vloer){ vloer.select(sel); vloer.focus(sel); }
           markeerSelectie(); renderChips(); renderPanel(); return; }

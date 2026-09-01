@@ -2,7 +2,7 @@
 // Validatiedesk — lokale webinterface voor de agents in deze workspace.
 // Geen dependencies: alleen Node built-ins. Start met: node hub/server.mjs
 import { createServer } from "node:http";
-import { readFile, readdir, writeFile, stat } from "node:fs/promises";
+import { readFile, readdir, writeFile, stat, mkdir, copyFile, rm } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join, dirname, extname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,6 +10,7 @@ import { spawn } from "node:child_process";
 import { platform, networkInterfaces } from "node:os";
 import { randomBytes, timingSafeEqual, createHash } from "node:crypto";
 import { CATALOGUS, SOORTEN, namen, maakAgents, bestaande } from "./agentfabriek.mjs";
+import { voorstellen as maakVoorstellen } from "./voorstellen.mjs";
 import { AANBIEDERS, overzicht as sleutelOverzicht, zet as zetSleutel } from "./sleutels.mjs";
 import { lijst as modellenLijst, standaard as standaardModel, bruikbareAanbieders,
          claudecodeStatus, praat } from "./modellen.mjs";
@@ -240,6 +241,24 @@ async function readDrafts(){
   return out;
 }
 
+// Goedgekeurde stukken in /outputs. Dezelfde vorm als drafts, zodat de hub
+// ze naast elkaar kan tonen. Hier komt alleen wat jij hebt goedgekeurd.
+async function readOutputs(){
+  const dir = join(ROOT, "outputs");
+  if(!existsSync(dir)) return [];
+  const out = [];
+  for(const f of (await readdir(dir)).filter(f=>f.endsWith(".md") && f!=="README.md")){
+    const p = join(dir,f);
+    const raw = await readFile(p,"utf8");
+    const st = await stat(p);
+    const h1 = raw.match(/^#\s+(.+)$/m);
+    out.push({ file: f, title: h1 ? h1[1] : f.replace(/\.md$/,"").replace(/-/g," "),
+               words: raw.split(/\s+/).length, modified: st.mtime.toISOString() });
+  }
+  out.sort((a,b)=> b.modified.localeCompare(a.modified));
+  return out;
+}
+
 // bedrijf.json: wie jij bent en hoe je bedrijf heet. Staat buiten git.
 async function readBedrijf(){
   if(!existsSync(BEDRIJF)) return null;
@@ -288,9 +307,9 @@ const server = createServer(async (req,res)=>{
       }
     }
     if(url.pathname === "/api/state"){
-      const [agents, drafts, desk, capabilities, bedrijf] = await Promise.all(
-        [readAgents(), readDrafts(), readDesk(), readCapabilities(), readBedrijf()]);
-      return send(res,200,JSON.stringify({ agents, drafts, desk, capabilities, bedrijf, root: ROOT }));
+      const [agents, drafts, desk, capabilities, bedrijf, outputs] = await Promise.all(
+        [readAgents(), readDrafts(), readDesk(), readCapabilities(), readBedrijf(), readOutputs()]);
+      return send(res,200,JSON.stringify({ agents, drafts, desk, capabilities, bedrijf, outputs, root: ROOT }));
     }
 
     // ---------- modellen en sleutels ----------
@@ -342,6 +361,59 @@ const server = createServer(async (req,res)=>{
                     .map(k => k + (/KEY|TOKEN|SECRET|PASSWORD/i.test(k) ? "=(verborgen)" : "=" + process.env[k]))
       }));
     }
+    // Wat is er nu te doen? De hub kijkt naar de echte stand en stelt stappen
+    // voor die naar een bestand, een opdracht of een agent wijzen.
+    if(url.pathname === "/api/voorstellen"){
+      const [agents, drafts, desk, capabilities, bedrijf, outputs] = await Promise.all(
+        [readAgents(), readDrafts(), readDesk(), readCapabilities(), readBedrijf(), readOutputs()]);
+      const state = { agents, drafts, desk, capabilities, bedrijf, outputs };
+      return send(res,200,JSON.stringify({
+        voorstellen: maakVoorstellen({ state, runs: await leesRuns(ROOT), catalogus: CATALOGUS })
+      }));
+    }
+
+    // Een voorstel wegleggen. Blijft weg tot je hem terughaalt.
+    if(url.pathname === "/api/voorstel" && req.method === "POST"){
+      let body=""; for await (const c of req){ body += c; if(body.length > 20_000) break; }
+      const g = JSON.parse(body || "{}");
+      const desk = await readDesk();
+      desk.verborgen = Array.isArray(desk.verborgen) ? desk.verborgen : [];
+      const id = String(g.id || "").slice(0,200);
+      if(!id) return send(res,400,'{"error":"welk voorstel?"}');
+      if(g.terug) desk.verborgen = desk.verborgen.filter(x => x !== id);
+      else if(desk.verborgen.indexOf(id) < 0) desk.verborgen.push(id);
+      await writeFile(DESK, JSON.stringify(desk,null,2)+"\n");
+      return send(res,200,JSON.stringify({ ok:true, verborgen: desk.verborgen }));
+    }
+
+    // Een rapport goedkeuren: van drafts/ naar outputs/. Dat is wat "klaar"
+    // betekent in deze workspace, en het gebeurt alleen als jij het zegt.
+    if(url.pathname === "/api/keur" && req.method === "POST"){
+      let body=""; for await (const c of req){ body += c; if(body.length > 20_000) break; }
+      const g = JSON.parse(body || "{}");
+      const f = String(g.file || "");
+      if(!/^[a-z0-9._-]+\.md$/i.test(f)) return send(res,400,'{"error":"onbekend bestand"}');
+      const bron = join(ROOT, "drafts", f);
+      if(!existsSync(bron)) return send(res,404,'{"error":"dat rapport ligt niet in drafts/"}');
+
+      const desk = await readDesk();
+      const brief = (desk.briefs || []).find(b => b.draft === f);
+
+      if(g.afkeuren){
+        if(brief){ brief.status = "nieuw"; brief.afgekeurd = String(g.reden || "").slice(0,300); }
+        await writeFile(DESK, JSON.stringify(desk,null,2)+"\n");
+        return send(res,200,JSON.stringify({ ok:true, status:"terug naar de agent" }));
+      }
+
+      await mkdir(join(ROOT, "outputs"), { recursive: true });
+      const doel = join(ROOT, "outputs", f);
+      await copyFile(bron, doel);
+      await rm(bron);
+      if(brief){ brief.status = "goedgekeurd"; brief.output = f; }
+      await writeFile(DESK, JSON.stringify(desk,null,2)+"\n");
+      return send(res,200,JSON.stringify({ ok:true, output: "outputs/" + f }));
+    }
+
     if(url.pathname === "/api/runs"){
       return send(res,200,JSON.stringify({ runs: await leesRuns(ROOT) }));
     }
@@ -362,7 +434,12 @@ const server = createServer(async (req,res)=>{
       });
       const stuur = (o) => { try { res.write("data: " + JSON.stringify(o) + "\n\n"); } catch {} };
       const stop = new AbortController();
-      req.on("close", () => stop.abort());
+      /* Als de browser weggaat of op stoppen drukt, moet de run ook echt
+       * stoppen. Dat merk je aan de response, niet aan de request: die is
+       * na het lezen van de body al klaar. */
+      const weg = () => { if (!stop.signal.aborted) stop.abort(); };
+      res.on("close", weg);
+      req.on("aborted", weg);
       try {
         await draai({ root: ROOT, agentId, opdracht, modelId: g.model,
                       stap: stuur, signal: stop.signal });

@@ -294,6 +294,7 @@ export async function praat({ root, aanbieder, model, systeem, verloop,
       kind.on("error", e => mis(new Error("Claude Code starten lukte niet: " + e.message)));
       kind.on("close", code => {
         if (signal) signal.removeEventListener("abort", stoppen);
+        if (signal && signal.aborted) return mis(new Error("afgebroken"));
         if (misging) return mis(new Error("Claude Code: " + misging.slice(0,300)));
         if (code !== 0 && !antwoord)
           return mis(new Error("Claude Code stopte met code " + code
