@@ -82,7 +82,12 @@ export class IsoOffice {
      * beeld heen. Dat is wat een vloer van matte dozen in neon verandert. */
     this.glCv = document.createElement("canvas");
     this.glCtx = this.glCv.getContext("2d");
-    this.glSchaal = .5;
+    this.glSchaal = .4;
+    /* Beeldkwaliteit: "auto" zakt vanzelf terug als het beeld hapert,
+     * "hoog" en "zuinig" zet je zelf vast bij Instellingen. */
+    this.kwaliteit = "auto";
+    this.zuinig = false;
+    this._traag = 0; this._vlot = 0; this._dtGem = 16;
 
     this.cam = { x:0, y:0, zoom:1, tx:0, ty:0 };
     this._bind();
@@ -561,7 +566,8 @@ export class IsoOffice {
   }
 
   _resize(){
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    /* zuinig tekent op minder pixels; dat scheelt meer dan wat dan ook */
+    const dpr = Math.min(window.devicePixelRatio || 1, this.zuinig ? 1.25 : 2);
     const w = this.cv.clientWidth || 800, h = this.cv.clientHeight || 480;
     this.cv.width  = Math.round(w*dpr);
     this.cv.height = Math.round(h*dpr);
@@ -577,8 +583,28 @@ export class IsoOffice {
   _loop(ts){
     const dt = Math.min(.05, (ts - (this._prev || ts))/1000);
     this._prev = ts; this.t += dt;
+    this._meetSnelheid(dt*1000);
     if (this.zichtbaar){ this._stap(dt); this._teken(); }
     this._raf = requestAnimationFrame(this._loop);
+  }
+
+  /* Hapert het beeld, dan gaat de gloed omlaag in plaats van dat het beeld
+   * blijft steken. Twee seconden traag is genoeg bewijs; vier seconden vlot
+   * zet hem weer terug. Op "hoog" of "zuinig" gebeurt dit niet. */
+  _meetSnelheid(ms){
+    this._dtGem = this._dtGem*.9 + ms*.1;
+    if (this.kwaliteit !== "auto"){ this.zuinig = this.kwaliteit === "zuinig"; return; }
+    if (this._dtGem > 33){ this._traag++; this._vlot = 0; }
+    else if (this._dtGem < 20){ this._vlot++; this._traag = 0; }
+    if (this._traag > 20 && !this.zuinig){ this.zuinig = true; this._traag = 0; this._resize(); }
+    if (this._vlot > 300 && this.zuinig){ this.zuinig = false; this._vlot = 0; this._resize(); }
+  }
+
+  setKwaliteit(k){
+    this.kwaliteit = (k === "hoog" || k === "zuinig") ? k : "auto";
+    if (this.kwaliteit !== "auto") this.zuinig = this.kwaliteit === "zuinig";
+    this._resize();
+    return this;
   }
 
   /* ===================== tekenen ===================== */
@@ -598,7 +624,7 @@ export class IsoOffice {
     this.perKavel = {};
     for (const a of this.agents) this.perKavel[a.deskIx] = a;
 
-    for (const t of this.tiles) this._tegel(t);
+    this._grondlaag();
     for (const k of KAVELS) this._kavelrand(k);
     this._pleinrand();
 
@@ -626,6 +652,7 @@ export class IsoOffice {
     const lijst = [];
     for (const p of this.props) lijst.push({ d: p.x + p.y + p.h/500, f: () => this._prop(p) });
     for (const a of this.agents) lijst.push({ d: a.x + a.y + .4,     f: () => this._agent(a) });
+    for (const v of this._busjes())  lijst.push({ d: v.x + v.y + .3,  f: () => this._busje(v) });
     lijst.sort((a,b) => a.d - b.d);
     for (const it of lijst) it.f();
 
@@ -640,9 +667,7 @@ export class IsoOffice {
     this._pleinlabels();
     for (const f of this.floaters) this._floater(f);
 
-    const v = c.createRadialGradient(W/2, H/2, Math.min(W,H)*.42, W/2, H/2, Math.max(W,H)*.82);
-    v.addColorStop(0, "rgba(0,0,0,0)"); v.addColorStop(1, "rgba(0,0,0,.5)");
-    c.fillStyle = v; c.fillRect(0,0,W,H);
+    this._vignet(W, H);
   }
 
   /* De gloed onder de stad. In het voorbeeld ligt de stad op een magenta
@@ -675,12 +700,18 @@ export class IsoOffice {
     const c = this.ctx, W = this.cv.clientWidth, H = this.cv.clientHeight;
     c.save();
     c.globalCompositeOperation = "lighter";
-    const kanFilter = typeof c.filter === "string";
-    if (kanFilter) c.filter = "blur(9px)";
-    c.globalAlpha = .55; c.drawImage(this.glCv, 0, 0, W, H);
-    if (kanFilter) c.filter = "blur(2px)";
-    c.globalAlpha = .85; c.drawImage(this.glCv, 0, 0, W, H);
-    if (kanFilter) c.filter = "none";
+    const kanFilter = typeof c.filter === "string" && !this.zuinig;
+    /* Zuinig: alleen het kleine doek uitvergroot. Dat vervaagt vanzelf en
+     * kost bijna niets; vervagen met een filter over het hele scherm is
+     * verreweg het duurste wat deze tekening doet. */
+    if (kanFilter){
+      c.filter = "blur(8px)";
+      c.globalAlpha = .6; c.drawImage(this.glCv, 0, 0, W, H);
+      c.filter = "none";
+      c.globalAlpha = .8; c.drawImage(this.glCv, 0, 0, W, H);
+    } else {
+      c.globalAlpha = .9; c.drawImage(this.glCv, 0, 0, W, H);
+    }
     c.restore();
   }
 
@@ -871,6 +902,180 @@ export class IsoOffice {
     c.strokeStyle = "rgba(0,0,0,.3)"; c.lineWidth = 1; c.stroke();
   }
 
+  /* De donkere rand om het beeld. Hangt alleen van de schermmaat af, dus
+   * één keer tekenen en daarna kopiëren. */
+  _vignet(W, H){
+    if (!this._vig || this._vigMaat !== W + "x" + H){
+      this._vig = document.createElement("canvas");
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      this._vig.width = Math.max(1, Math.round(W*dpr));
+      this._vig.height = Math.max(1, Math.round(H*dpr));
+      const vc = this._vig.getContext("2d");
+      vc.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const g = vc.createRadialGradient(W/2, H/2, Math.min(W,H)*.42, W/2, H/2, Math.max(W,H)*.82);
+      g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(1, "rgba(0,0,0,.5)");
+      vc.fillStyle = g; vc.fillRect(0, 0, W, H);
+      this._vigMaat = W + "x" + H;
+    }
+    this.ctx.drawImage(this._vig, 0, 0, W, H);
+  }
+
+  /* De grond — tegels, wegmarkering, bestrating — verandert alleen als de
+   * camera of het niveau verandert. Elk beeld opnieuw 441 tegels en 200
+   * streepjes tekenen kost meer dan alle poppetjes bij elkaar, dus die laag
+   * gaat één keer op een eigen doek en wordt daarna gekopieerd. */
+  _grondlaag(){
+    const W = this.cv.clientWidth, H = this.cv.clientHeight;
+    const sleutel = [Math.round(this.cam.x), Math.round(this.cam.y),
+                     this.cam.zoom.toFixed(3), this.welvaart, this.themaId,
+                     W, H].join("|");
+    if (!this._grond){
+      this._grond = document.createElement("canvas");
+      this._grondCtx = this._grond.getContext("2d");
+    }
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    if (this._grondSleutel !== sleutel){
+      this._grond.width = Math.max(1, Math.round(W*dpr));
+      this._grond.height = Math.max(1, Math.round(H*dpr));
+      const echt = this.ctx;
+      this._grondCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      this._grondCtx.clearRect(0, 0, W, H);
+      this.ctx = this._grondCtx;                 /* even op het andere doek tekenen */
+      for (const t of this.tiles) this._tegel(t);
+      this._wegmarkering();
+      this._pleinbestrating();
+      this.ctx = echt;
+      this._grondSleutel = sleutel;
+    }
+    this.ctx.drawImage(this._grond, 0, 0, W, H);
+  }
+
+  /* Een bestelbusje dat de ringweg rondrijdt zodra het bedrijf loopt. Eén
+   * bewegend ding op straat doet meer voor het beeld dan tien stilstaande.
+   * Rijdt niet als je net begint, en niet als animatie uit staat. */
+  _busjes(){
+    if (this.reduced || (this.welvaart || 0) < 2) return [];
+    const ring = [
+      { x0:5.5, y0:5.5,  x1:15.5, y1:5.5  },
+      { x0:15.5, y0:5.5, x1:15.5, y1:15.5 },
+      { x0:15.5, y0:15.5, x1:5.5, y1:15.5 },
+      { x0:5.5, y0:15.5, x1:5.5,  y1:5.5  }
+    ];
+    const aantal = (this.welvaart || 0) >= 4 ? 2 : 1;
+    const uit = [];
+    for (let n = 0; n < aantal; n++){
+      const t = ((this.t*0.035) + n/aantal) % 1;
+      const deel = Math.min(3, Math.floor(t*4));
+      const f = t*4 - deel;
+      const r = ring[deel];
+      uit.push({
+        x: r.x0 + (r.x1 - r.x0)*f,
+        y: r.y0 + (r.y1 - r.y0)*f,
+        richting: deel
+      });
+    }
+    return uit;
+  }
+
+  _busje(v){
+    const c = this.ctx, z = this.cam.zoom;
+    const s = this._naarScherm(v.x, v.y);
+    c.save(); c.globalAlpha = .35; c.fillStyle = "#04070F";
+    c.beginPath(); c.ellipse(s.x, s.y + 2*z, 9*z, 4*z, 0, 0, 7); c.fill(); c.restore();
+    this._doos(v.x - .28, v.y - .18, .56, .36, 9, "#43567F");
+    this._doos(v.x - .16, v.y - .14, .3, .28, 14, "#4E648E");
+    /* koplampjes in de rijrichting */
+    const vooruit = [[1,0],[0,1],[-1,0],[0,-1]][v.richting];
+    const k = this._naarScherm(v.x + vooruit[0]*.32, v.y + vooruit[1]*.32);
+    c.fillStyle = "#FFE6B0";
+    c.beginPath(); c.arc(k.x, k.y - 5*z, 1.5*z, 0, 7); c.fill();
+    this._lichtBol(k.x, k.y - 5*z, 7*z, "#FFE6B0", .55);
+  }
+
+  /* Een zachte slagschaduw op de grond, in de richting van het licht. Zonder
+   * schaduw zweeft elk gebouw en oogt de stad plat. */
+  _grondschaduw(gx, gy, w, d, h){
+    const c = this.ctx, z = this.cam.zoom;
+    const scheef = Math.min(.6, h/120) * .8;   /* hogere gebouwen, langere schaduw */
+    const p1 = this._naarScherm(gx, gy + d);
+    const p2 = this._naarScherm(gx + w, gy + d);
+    const p3 = this._naarScherm(gx + w + scheef, gy + d + scheef);
+    const p4 = this._naarScherm(gx + scheef, gy + d + scheef);
+    c.save();
+    c.globalAlpha = .22;
+    c.fillStyle = "#04070F";
+    c.beginPath();
+    c.moveTo(p1.x, p1.y); c.lineTo(p2.x, p2.y);
+    c.lineTo(p3.x, p3.y); c.lineTo(p4.x, p4.y);
+    c.closePath(); c.fill();
+    c.restore();
+  }
+
+  /* Een plat vlak op de grond, bijvoorbeeld een pad of een zebrapad. */
+  _vlak(gx, gy, w, d, kleur, alpha){
+    const c = this.ctx;
+    const p1 = this._naarScherm(gx, gy),         p2 = this._naarScherm(gx + w, gy);
+    const p3 = this._naarScherm(gx + w, gy + d), p4 = this._naarScherm(gx, gy + d);
+    c.save(); if (alpha != null) c.globalAlpha = alpha;
+    c.beginPath();
+    c.moveTo(p1.x, p1.y); c.lineTo(p2.x, p2.y); c.lineTo(p3.x, p3.y); c.lineTo(p4.x, p4.y);
+    c.closePath(); c.fillStyle = kleur; c.fill(); c.restore();
+  }
+
+  /* Het plein krijgt bestrating die naar de toren wijst. Vier banen die
+   * samenkomen bij de ingang: dat trekt het oog naar het midden. */
+  _pleinbestrating(){
+    if (this.cam.zoom < .45) return;
+    const licht = "rgba(150,180,235,.07)";
+    for (let i = 0; i < 4; i++){
+      this._vlak(6.4 + i*2, 6.4, .12, 8.2, licht);
+      this._vlak(6.4, 6.4 + i*2, 8.2, .12, licht);
+    }
+    /* een ring rond de voet van de toren */
+    this._vlak(8.6, 8.6, 3.8, .12, "rgba(126,216,255,.12)");
+    this._vlak(8.6, 12.3, 3.8, .12, "rgba(126,216,255,.12)");
+    this._vlak(8.6, 8.6, .12, 3.8, "rgba(126,216,255,.12)");
+    this._vlak(12.3, 8.6, .12, 3.8, "rgba(126,216,255,.12)");
+  }
+
+  /* Wegmarkering: streepjes midden op de straat en zebrapaden bij het plein.
+   * Kost weinig en maakt van een raster een stad. */
+  _wegmarkering(){
+    const c = this.ctx, z = this.cam.zoom;
+    if (z < .45) return;
+    const kleur = "rgba(190,205,235,.16)";
+    /* de straten liggen op x = 0,5,10,15,20 en y = 0,5,10,15,20 */
+    for (let k = 0; k <= 20; k += 5){
+      for (let n = 0; n < 20; n += 2){
+        this._vlak(k + .46, n + .3, .08, .9, kleur);      /* verticale straat */
+        this._vlak(n + .3, k + .46, .9, .08, kleur);      /* horizontale straat */
+      }
+    }
+    /* zebrapaden bij de vier ingangen van het plein */
+    const zebra = (gx, gy, langs) => {
+      for (let i = 0; i < 5; i++){
+        if (langs) this._vlak(gx, gy + i*.19, .9, .1, "rgba(210,225,255,.3)");
+        else       this._vlak(gx + i*.19, gy, .1, .9, "rgba(210,225,255,.3)");
+      }
+    };
+    zebra(10.05, 5.05, false); zebra(10.05, 15.05, false);
+    zebra(5.05, 10.05, true);  zebra(15.05, 10.05, true);
+  }
+
+  /* Een vlak IN de gevel. a en b zijn de onderhoeken van dat gevelvlak, H de
+   * hoogte in schermpixels; u loopt langs de gevel, v omhoog. Zonder dit
+   * plak je een rechthoekje op een scheef vlak en dat zie je meteen. */
+  _gevelVlak(a, b, H, u0, u1, v0, v1, kleur, alpha){
+    const c = this.ctx;
+    const punt = (u, v) => ({ x: a.x + (b.x - a.x)*u, y: a.y + (b.y - a.y)*u - H*v });
+    const q = [punt(u0,v0), punt(u1,v0), punt(u1,v1), punt(u0,v1)];
+    c.save(); if (alpha != null) c.globalAlpha = alpha;
+    c.beginPath(); c.moveTo(q[0].x, q[0].y);
+    for (let i = 1; i < 4; i++) c.lineTo(q[i].x, q[i].y);
+    c.closePath(); c.fillStyle = kleur; c.fill(); c.restore();
+    return punt((u0+u1)/2, (v0+v1)/2);
+  }
+
   /* Ramen op één gevel. a en b zijn de twee onderhoeken van dat vlak op het
    * scherm, H de hoogte in schermpixels. Welke ramen branden hangt af van
    * druk (0..1) en blijft per gebouw hetzelfde: geen geflikker bij stilstand. */
@@ -894,9 +1099,10 @@ export class IsoOffice {
         c.closePath();
         c.fillStyle = aan ? kleurAan : T.raamUit;
         c.globalAlpha = aan ? .95 : .5; c.fill(); c.globalAlpha = 1;
-        if (aan){
+        /* gloed per raam is duur; alleen doen waar echt gewerkt wordt */
+        if (aan && druk > .6){
           const mid = punt((u0+u1)/2, (v0+v1)/2);
-          this._lichtBol(mid.x, mid.y, Math.abs(p[1].x - p[0].x)*.45 + 1, kleurAan, .22);
+          this._lichtBol(mid.x, mid.y, Math.abs(p[1].x - p[0].x)*.32 + 1, kleurAan, .16);
         }
       }
     }
@@ -932,18 +1138,36 @@ export class IsoOffice {
         const raam  = werkt ? T.raamAan : flauw ? T.raamUit : T.raamKoel;
         const H     = p.h*z;
 
+        /* een pad van de stoep naar de deur, en wat er verder op het erf ligt */
+        this._vlak(p.x + .75, p.y + p.d, .5, 1.15, "rgba(150,175,215,.09)");
+        this._grondschaduw(p.x, p.y, p.w, p.d, p.h);
+
         /* sokkel: het gebouw staat op een stoepje, dat geeft het gewicht */
         this._doos(p.x - .18, p.y - .18, p.w + .36, p.d + .36, 5, T.stoep);
         this._doos(p.x, p.y, p.w, p.d, p.h, T.gebouw);
+
 
         /* de vier hoekpunten van de bovenkant, voor gevels en dak */
         const p1 = this._naarScherm(p.x, p.y),           p2 = this._naarScherm(p.x + p.w, p.y);
         const p3 = this._naarScherm(p.x + p.w, p.y+p.d), p4 = this._naarScherm(p.x, p.y + p.d);
 
+        /* de begane grond donkerder: een band over de gevel, niet een doos
+         * eromheen — die zou de ramen afdekken */
+        const band = (a1, b1) => {
+          const hoog = Math.min(15, p.h*.2)*z;
+          c.save(); c.globalAlpha = .5; c.fillStyle = shade(T.gebouw, -30);
+          c.beginPath();
+          c.moveTo(a1.x, a1.y); c.lineTo(b1.x, b1.y);
+          c.lineTo(b1.x, b1.y - hoog); c.lineTo(a1.x, a1.y - hoog);
+          c.closePath(); c.fill(); c.restore();
+        };
+
         /* ramen op de twee zichtbare gevels */
         const kol = p.stijl === 2 ? 2 : 3, rij = Math.max(2, Math.round(p.h/22));
         this._gevel(p2, p3, H, kol, rij, p.kavel + 1, druk, raam);
         this._gevel(p3, p4, H, kol, rij, p.kavel + 9, druk*.85, raam);
+
+        band(p2, p3); band(p3, p4);
 
         /* daklijn in de kleur van de agent: zo herken je zijn gebouw */
         c.save();
@@ -973,11 +1197,40 @@ export class IsoOffice {
           this._lichtBol(top.x, top.y - H - 27*z, 6*z, "#FF6B7D", puls);
         }
 
-        /* deur met warm licht, aan de kant waar de agent staat */
-        const dx = basis.x, dy = this._naarScherm(p.x + p.w/2, p.y + p.d).y;
-        c.fillStyle = werkt ? "rgba(255,196,107,.85)" : "rgba(127,216,255,.45)";
-        c.fillRect(dx - 4*z, dy - 11*z, 8*z, 11*z);
-        this._lichtRect(dx - 4*z, dy - 11*z, 8*z, 11*z, werkt ? T.raamAan : T.raamKoel, werkt ? .8 : .35);
+        /* dakrand met een reling en wat techniek erop: elk dak is anders */
+        c.save();
+        c.strokeStyle = shade(T.gebouwDak, 30); c.globalAlpha = .5; c.lineWidth = 1*z;
+        for (let i = 1; i <= 3; i++){
+          const u = i/4;
+          c.beginPath();
+          c.moveTo(p2.x + (p3.x - p2.x)*u, p2.y + (p3.y - p2.y)*u - H);
+          c.lineTo(p2.x + (p3.x - p2.x)*u, p2.y + (p3.y - p2.y)*u - H - 4*z);
+          c.stroke();
+        }
+        c.restore();
+        this._doos(p.x + .18, p.y + 1.35, .45, .35, p.h + 7, "#33507F");   /* kastje */
+        this._doos(p.x + 1.4, p.y + .2, .35, .3, p.h + 5, "#2C4674");      /* pijpje */
+
+        /* Deur, luifel en naambordje liggen IN de gevel, niet op het scherm.
+         * De voorgevel is de kant waar de agent staat: p3 → p4. */
+        const deurK = werkt ? "rgba(255,196,107,.92)" : "rgba(127,216,255,.55)";
+        const mid = this._gevelVlak(p3, p4, H, .40, .58, .01, .13, deurK);
+        this._lichtBol(mid.x, mid.y, 9*z, werkt ? T.raamAan : T.raamKoel, werkt ? .7 : .3);
+        /* luifel: een streep boven de deur in de kleur van de agent */
+        const lm = this._gevelVlak(p3, p4, H, .34, .64, .132, .152, shade(a.color, -18));
+        this._lichtBol(lm.x, lm.y, 7*z, a.color, werkt ? .5 : .28);
+        /* bordje met zijn initialen naast de deur */
+        if (z > .5){
+          const bm = this._gevelVlak(p3, p4, H, .64, .80, .05, .115, "rgba(9,15,28,.9)");
+          this._gevelVlak(p3, p4, H, .64, .655, .05, .115, a.color);
+          c.fillStyle = a.color;
+          c.font = "700 " + (5.4*z).toFixed(1) + 'px "IBM Plex Mono",ui-monospace,monospace';
+          c.fillText(initialen(a.short || a.name), bm.x + 1*z, bm.y);
+        }
+
+        /* een fietsenrek en een container op het erf: dat maakt het bewoond */
+        this._doos(p.x + 2.35, p.y + 1.55, .5, .16, 7, "#3A4A6B");
+        this._doos(p.x - .35, p.y + 1.5, .45, .45, 9, "#2F3E5E");
         break;
       }
 
@@ -1133,6 +1386,9 @@ export class IsoOffice {
 
       case "boom": {
         const s = this._naarScherm(p.x + p.w/2, p.y + p.d/2);
+        c.save(); c.globalAlpha = .3; c.fillStyle = "#04070F";
+        c.beginPath(); c.ellipse(s.x + p.h*.14*z, s.y + 1*z, p.h*.17*z, p.h*.07*z, 0, 0, 7);
+        c.fill(); c.restore();
         c.strokeStyle = T.stam; c.lineWidth = 2.2*z;
         c.beginPath(); c.moveTo(s.x, s.y); c.lineTo(s.x, s.y - p.h*.45*z); c.stroke();
         for (let i = 0; i < 3; i++){

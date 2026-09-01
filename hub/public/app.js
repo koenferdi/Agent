@@ -757,6 +757,7 @@ function pasVoorkeurenToe(){
   var v = voorkeuren();
   if(vloer){
     vloer.office.setThema(v.thema || "nacht");
+    vloer.office.setKwaliteit(v.kwaliteit || "auto");
     if(v.animatie === false) vloer.office.reduced = true;
     else if(v.animatie === true) vloer.office.reduced = false;
   }
@@ -860,7 +861,16 @@ function renderInstellingen(){
     + schakel("rondloop", "Rondloop standaard aan", v.rondloop === true,
         "Agents verzinnen zelf iets te doen. Verzonnen gedrag, duidelijk gelabeld.")
     + '</div>'
-    + '<div class="ins-rij"><div class="ins-kaart"><b>Hoe vaak verversen</b>'
+    + '<div class="ins-rij"><div class="ins-kaart"><b>Beeldkwaliteit</b>'
+    + '<p>De gloed over de stad is verreweg het duurste om te tekenen. '
+    + 'Op automatisch zakt hij vanzelf terug zodra het beeld hapert.</p>'
+    + '<select data-voorkeur="kwaliteit">'
+    + [["auto","Automatisch"],["hoog","Hoog · volle gloed"],["zuinig","Zuinig · vlot op elk apparaat"]]
+        .map(function(o){
+          return '<option value="' + o[0] + '"' + ((v.kwaliteit || "auto") === o[0] ? " selected" : "")
+            + '>' + o[1] + '</option>'; }).join("")
+    + '</select></div>'
+    + '<div class="ins-kaart"><b>Hoe vaak verversen</b>'
     + '<p>Hoe vaak de hub je bestanden opnieuw leest.</p>'
     + '<select data-voorkeur="ververs">'
     + [10,20,60,300].map(function(n){
