@@ -375,6 +375,37 @@ const server = createServer(async (req,res)=>{
       await writeFile(BEDRIJF, JSON.stringify(bedrijf,null,2)+"\n");
       return send(res,200,JSON.stringify({ ok:true, bedrijf, ...uit }));
     }
+    // Het profiel bijwerken: mijlpalen, voorkeuren, aansluiting. Alles wat je
+    // in de instellingen zet komt hier binnen en gaat naar bedrijf.json.
+    if(url.pathname === "/api/bedrijf" && req.method === "POST"){
+      let body=""; for await (const c of req){ body += c; if(body.length > 200_000) break; }
+      const g = JSON.parse(body || "{}");
+      const oud = (await readBedrijf()) || {};
+      const uit = { ...oud };
+      if (g.operator != null) uit.operator = String(g.operator).trim().slice(0,80);
+      if (g.bedrijf){
+        uit.bedrijf = {
+          ...(oud.bedrijf || {}),
+          naam: String(g.bedrijf.naam ?? (oud.bedrijf||{}).naam ?? "").trim().slice(0,80),
+          wat:  String(g.bedrijf.wat  ?? (oud.bedrijf||{}).wat  ?? "").trim().slice(0,400),
+          soort: String(g.bedrijf.soort ?? (oud.bedrijf||{}).soort ?? "").trim().slice(0,60),
+          fase: String(g.bedrijf.fase ?? (oud.bedrijf||{}).fase ?? "valideren").slice(0,40)
+        };
+      }
+      if (Array.isArray(g.mijlpalen))
+        uit.mijlpalen = g.mijlpalen.filter(x => typeof x === "string").slice(0,40)
+          .map(x => x.slice(0,40));
+      if (g.voorkeuren && typeof g.voorkeuren === "object"){
+        const v = { ...(oud.voorkeuren || {}) };
+        for (const k of ["thema","animatie","rondloop","ververs","aansluiting","model"]) {
+          if (g.voorkeuren[k] !== undefined) v[k] = g.voorkeuren[k];
+        }
+        uit.voorkeuren = v;
+      }
+      uit.bijgewerkt = new Date().toISOString();
+      await writeFile(BEDRIJF, JSON.stringify(uit,null,2)+"\n");
+      return send(res,200,JSON.stringify({ ok:true, bedrijf:uit }));
+    }
     if(url.pathname === "/api/desk" && req.method === "POST"){
       let body=""; for await (const c of req) body += c;
       if(body.length > 2_000_000) return send(res,413,'{"error":"te groot"}');

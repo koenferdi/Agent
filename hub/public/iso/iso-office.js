@@ -63,6 +63,10 @@ export class IsoOffice {
 
     this.agents = [];
     this.zoneInfo = {};
+    /* Hoe goed het bedrijf ervoor staat, 0 t/m 5. Stuurt hoe de stad erbij
+     * ligt: licht, groen, versiering, en hoe de agents erbij lopen. De hub
+     * rekent dit uit uit echte tellingen; de motor gelooft hem gewoon. */
+    this.welvaart = 0;
     this.floaters = [];
     this.selectedId = null; this.hoverAgent = null; this.hover = null;
     this.sleepAgent = null; this.mikpunt = null;
@@ -147,6 +151,13 @@ export class IsoOffice {
   setDemo(aan){
     this.demo = !!aan;
     if (!this.demo) for (const a of this.agents){ a.gedachte = null; this._opStatus(a, a.status); }
+    return this;
+  }
+
+  /* Hoe goed het bedrijf ervoor staat: 0 (net begonnen) t/m 5 (het loopt).
+   * Alles wat hierop reageert staat in _prop en _grondgloed. */
+  setWelvaart(n){
+    this.welvaart = clamp(Math.round(n || 0), 0, 5);
     return this;
   }
 
@@ -590,8 +601,11 @@ export class IsoOffice {
       const s = this._naarScherm(l.x, l.y), r = l.r*z;
       const a = l.kavel == null ? null : this.perKavel[l.kavel];
       const aan = !!a;
+      const warmte = (this.welvaart || 0)/5;
+      const kk = aan ? (.13 + warmte*.12) : .06;
       const g = c.createRadialGradient(s.x, s.y, 0, s.x, s.y, r);
-      g.addColorStop(0, "rgba(140,180,255," + (aan ? .16 : .07) + ")");
+      g.addColorStop(0, "rgba(" + Math.round(140 + warmte*90) + ","
+                                + Math.round(180 + warmte*10) + ",255," + kk.toFixed(3) + ")");
       g.addColorStop(1, "rgba(140,180,255,0)");
       c.fillStyle = g; c.beginPath(); c.arc(s.x, s.y, r, 0, 7); c.fill();
     });
@@ -627,9 +641,13 @@ export class IsoOffice {
     const W = this.cv.clientWidth, H = this.cv.clientHeight;
     const mid = this._naarScherm(GRID.w/2, GRID.h/2);
     const r = Math.max(W, H)*.75;
+    /* koud paars als je net begint, warm en vol als het loopt */
+    const n = (this.welvaart || 0)/5;
+    const rood  = Math.round(120 + n*115), groen = Math.round(40 + n*35), blauw = Math.round(200 - n*40);
+    const kracht = .22 + n*.2;
     const g = c.createRadialGradient(mid.x, mid.y + H*.18, 0, mid.x, mid.y + H*.18, r);
-    g.addColorStop(0,  "rgba(185,58,224,.34)");
-    g.addColorStop(.45,"rgba(120,45,190,.16)");
+    g.addColorStop(0,  "rgba(" + rood + "," + groen + "," + blauw + "," + kracht.toFixed(2) + ")");
+    g.addColorStop(.45,"rgba(" + Math.round(rood*.65) + ",45,190," + (kracht*.5).toFixed(2) + ")");
     g.addColorStop(1,  "rgba(11,18,32,0)");
     c.save(); c.globalCompositeOperation = "lighter";
     c.fillStyle = g; c.fillRect(0,0,W,H); c.restore();
@@ -862,7 +880,7 @@ export class IsoOffice {
         c.globalAlpha = aan ? .95 : .5; c.fill(); c.globalAlpha = 1;
         if (aan){
           const mid = punt((u0+u1)/2, (v0+v1)/2);
-          this._lichtBol(mid.x, mid.y, Math.abs(p[1].x - p[0].x)*.75 + 1, kleurAan, .3);
+          this._lichtBol(mid.x, mid.y, Math.abs(p[1].x - p[0].x)*.45 + 1, kleurAan, .22);
         }
       }
     }
@@ -870,6 +888,8 @@ export class IsoOffice {
 
   _prop(p){
     const c = this.ctx, z = this.cam.zoom, T = this.theme;
+    /* sommige dingen komen er pas als het bedrijf beter loopt */
+    if (p.vanaf != null && p.vanaf > (this.welvaart || 0)) return;
     switch (p.kind){
 
       /* ---- het gebouw van één agent ---------------------------------- */
@@ -1021,6 +1041,69 @@ export class IsoOffice {
       }
 
       case "bank": this._doos(p.x, p.y, p.w, p.d, p.h, "#3B4468"); break;
+
+      /* de vlag aan de gevel: de kleur van de agent die er woont */
+      case "vlag": {
+        const a = this.perKavel ? this.perKavel[p.kavel] : null;
+        if (!a) break;
+        const hoek = this._naarScherm(p.x + p.w, p.y + p.d/2);
+        const top = hoek.y - (p.h - 8)*z;
+        const golf = this.reduced ? 0 : Math.sin(this.t*1.6 + p.kavel)*1.6*z;
+        c.save();
+        c.strokeStyle = "#8497BE"; c.lineWidth = 1.2*z;
+        c.beginPath(); c.moveTo(hoek.x, top); c.lineTo(hoek.x, top + 26*z); c.stroke();
+        c.beginPath();
+        c.moveTo(hoek.x + 1*z, top + 2*z);
+        c.lineTo(hoek.x + 13*z + golf, top + 4*z);
+        c.lineTo(hoek.x + 13*z + golf, top + 13*z);
+        c.lineTo(hoek.x + 1*z, top + 12*z);
+        c.closePath();
+        c.fillStyle = a.color; c.globalAlpha = .9; c.fill();
+        c.restore();
+        this._lichtRect(hoek.x + 1*z, top + 2*z, 12*z, 10*z, a.color, .45);
+        break;
+      }
+
+      /* fontein op het plein: komt er pas als het bedrijf goed loopt */
+      case "fontein": {
+        this._doos(p.x, p.y, p.w, p.d, 7, "#2A3A5E");
+        const m = this._naarScherm(p.x + p.w/2, p.y + p.d/2);
+        c.save();
+        c.fillStyle = "rgba(126,216,255,.5)";
+        c.beginPath(); c.ellipse(m.x, m.y - 5*z, 15*z, 7*z, 0, 0, 7); c.fill();
+        c.restore();
+        this._lichtBol(m.x, m.y - 6*z, 14*z, "#7FD8FF", .35);
+        /* de straal */
+        const h = (10 + (this.reduced ? 2 : Math.abs(Math.sin(this.t*1.4))*5))*z;
+        c.fillStyle = "rgba(180,235,255,.75)";
+        c.fillRect(m.x - 1.2*z, m.y - 6*z - h, 2.4*z, h);
+        this._lichtRect(m.x - 1.2*z, m.y - 6*z - h, 2.4*z, h, "#B4EBFF", .7);
+        break;
+      }
+
+      /* marktkraam met gestreepte luifel: dat maakt het plein gezellig */
+      case "kraam": {
+        this._doos(p.x, p.y, p.w, p.d, p.h*.55, "#4A3F63");
+        const l = this._naarScherm(p.x, p.y + p.d);
+        const r = this._naarScherm(p.x + p.w, p.y + p.d);
+        const dak = p.h*z;
+        c.save();
+        for (let i = 0; i < 6; i++){
+          const u0 = i/6, u1 = (i + 1)/6;
+          c.beginPath();
+          c.moveTo(l.x + (r.x - l.x)*u0, l.y + (r.y - l.y)*u0 - dak);
+          c.lineTo(l.x + (r.x - l.x)*u1, l.y + (r.y - l.y)*u1 - dak);
+          c.lineTo(l.x + (r.x - l.x)*u1, l.y + (r.y - l.y)*u1 - dak + 7*z);
+          c.lineTo(l.x + (r.x - l.x)*u0, l.y + (r.y - l.y)*u0 - dak + 7*z);
+          c.closePath();
+          c.fillStyle = i % 2 ? "#F3EDE2" : (p.kleur || "#C9542F");
+          c.fill();
+        }
+        c.restore();
+        const m2 = this._naarScherm(p.x + p.w/2, p.y + p.d/2);
+        this._lichtRect(m2.x - 10*z, m2.y - dak + 2*z, 20*z, 4*z, "#FFD9A0", .4);
+        break;
+      }
 
       case "lantaarn": {
         const s = this._naarScherm(p.x, p.y);
@@ -1206,52 +1289,75 @@ export class IsoOffice {
          (this.zoneInfo && this.zoneInfo.meeting) || "hier komt de ploeg samen");
   }
 
+  /* ============ het poppetje ============
+   *
+   * Met de hand getekende pixelfiguur op een raster van 12 bij 18 blokjes.
+   * Geen plaatjesbestand: dat schaalt slecht en je kunt er geen kleding aan
+   * hangen die per agent verschilt. Alles is fillRect op hele blokjes, dus
+   * het blijft scherp op elke zoom.
+   *
+   * Wat er per agent verschilt: huid, haar, kleur van het shirt (zijn eigen
+   * kleur) en hoe rijk hij erbij loopt — dat laatste komt uit de welvaart van
+   * het bedrijf, niet uit smaak.
+   */
+  _huid(a){
+    const t = ["#F0C9A4","#E0AA80","#C68A5E","#9C6242","#7A4B33","#F7DCC0"];
+    return t[this._zaad(a.id) % t.length];
+  }
+  _haar(a){
+    const t = ["#2B2118","#4A2F1C","#6E4423","#8C6239","#1A1A1F","#B0793B","#5E4A6B"];
+    return t[(this._zaad(a.id) >> 3) % t.length];
+  }
+  _zaad(id){
+    let n = 0;
+    for (let i = 0; i < String(id).length; i++) n = (n*31 + String(id).charCodeAt(i)) & 0xffff;
+    return n;
+  }
+
   _agent(a){
     const c = this.ctx, z = this.cam.zoom, T = this.theme;
     const s = this._naarScherm(a.x, a.y);
     const gekozen = a.id === this.selectedId;
-    const zit  = a.pose === "zitten" && !a.loopt;
+    const zit   = a.pose === "zitten" && !a.loopt;
     const flauw = a.status === "offphase" || a.status === "geparkeerd";
-    const wip  = a.loopt && !this.reduced ? Math.abs(Math.sin(a.bob))*3*z : 0;
-    const adem = !a.loopt && !this.reduced ? Math.sin(a.bob)*1.1*z : 0;
     const baseY = s.y + TILE.h/2*z;
-    const bodemY = baseY - wip + adem + (zit ? 5*z : 0);
-    const hoogte = (zit ? 23 : 34)*z, breedte = 19*z;
+    const niveau = this.welvaart || 0;
+
+    /* één blokje. Nooit kleiner dan een echte pixel, anders valt hij uit elkaar */
+    const P = Math.max(1, 1.55*z);
+    const stap = a.loopt && !this.reduced ? (Math.floor(a.bob/1.4) % 4) : -1;
+    const adem = !a.loopt && !this.reduced ? (Math.floor(this.t*1.6 + a.bob) % 6 === 0 ? 1 : 0) : 0;
+    const wip  = stap === 1 || stap === 3 ? 1 : 0;
+
+    /* het raster: x naar rechts vanaf het midden, y omhoog vanaf de voeten */
+    const ox = s.x, oy = baseY - (zit ? 3*P : 0) + (adem + wip)*P;
+    const blok = (kleur, x, y, w, h) => {
+      c.fillStyle = kleur;
+      c.fillRect(Math.round(ox + (x - 6)*P), Math.round(oy - (y + h)*P),
+                 Math.ceil(w*P), Math.ceil(h*P));
+    };
 
     c.save();
-    if (flauw) c.globalAlpha = .45;
+    if (flauw) c.globalAlpha = .5;
 
+    /* schaduw en zijn eigen kleur op de grond */
     c.fillStyle = "rgba(0,0,0,.5)";
-    c.beginPath(); c.ellipse(s.x, baseY, 15*z, 7*z, 0, 0, 7); c.fill();
+    c.beginPath(); c.ellipse(s.x, baseY, 8*P, 3.4*P, 0, 0, 7); c.fill();
     if (!flauw){
-      /* een agent draagt zijn eigen kleur mee op de vloer */
-      const gl = c.createRadialGradient(s.x, baseY, 0, s.x, baseY, 26*z);
-      gl.addColorStop(0, a.color + "44"); gl.addColorStop(1, a.color + "00");
+      const gl = c.createRadialGradient(s.x, baseY, 0, s.x, baseY, 14*P);
+      gl.addColorStop(0, a.color + "3A"); gl.addColorStop(1, a.color + "00");
       c.save(); c.globalCompositeOperation = "lighter";
-      c.fillStyle = gl; c.beginPath(); c.ellipse(s.x, baseY, 26*z, 12*z, 0, 0, 7); c.fill();
+      c.fillStyle = gl; c.beginPath(); c.ellipse(s.x, baseY, 14*P, 6*P, 0, 0, 7); c.fill();
       c.restore();
-      this._lichtBol(s.x, baseY - hoogte*.35, 9*z, a.color, .22);
     }
 
-    if (gekozen && !this.reduced){
-      /* een baken boven de gekozen agent, zodat je hem terugvindt */
-      const top = baseY - 150*z;
-      const g2 = c.createLinearGradient(s.x, top, s.x, baseY);
-      g2.addColorStop(0, a.color + "00"); g2.addColorStop(1, a.color + "3A");
-      c.save(); c.globalCompositeOperation = "lighter";
-      c.fillStyle = g2;
-      c.beginPath();
-      c.moveTo(s.x - 3*z, top); c.lineTo(s.x + 3*z, top);
-      c.lineTo(s.x + 13*z, baseY); c.lineTo(s.x - 13*z, baseY);
-      c.closePath(); c.fill(); c.restore();
-    }
     if (gekozen || a.gesleept){
       c.save();
-      c.strokeStyle = a.gesleept ? T.wait : T.gold; c.lineWidth = 2.5*z;
-      c.setLineDash([6*z, 5*z]); c.lineDashOffset = -this.t*22*z;
-      c.beginPath(); c.ellipse(s.x, baseY, 19*z, 9.5*z, 0, 0, 7); c.stroke();
+      c.strokeStyle = a.gesleept ? T.wait : T.gold; c.lineWidth = 2*z;
+      c.setLineDash([5*z, 4*z]); c.lineDashOffset = -this.t*20*z;
+      c.beginPath(); c.ellipse(s.x, baseY, 10*P, 4.6*P, 0, 0, 7); c.stroke();
       c.restore();
-      this._lichtBol(s.x, baseY, 20*z, a.gesleept ? T.wait : T.gold, .3);
+      this._lichtBol(s.x, baseY, 11*P, a.gesleept ? T.wait : T.gold, .3);
     }
     if (a.gesleept && this.mikpunt){
       const m = this._naarScherm(this.mikpunt.x + .5, this.mikpunt.y + .5);
@@ -1261,48 +1367,100 @@ export class IsoOffice {
       c.restore();
     }
 
-    /* romp */
-    c.beginPath();
-    c.moveTo(s.x - breedte/2, bodemY);
-    c.quadraticCurveTo(s.x - breedte/2 - 1.5*z, bodemY - hoogte*.65, s.x - breedte*.34, bodemY - hoogte*.82);
-    c.lineTo(s.x + breedte*.34, bodemY - hoogte*.82);
-    c.quadraticCurveTo(s.x + breedte/2 + 1.5*z, bodemY - hoogte*.65, s.x + breedte/2, bodemY);
-    c.closePath();
-    const g = c.createLinearGradient(s.x - breedte/2, 0, s.x + breedte/2, 0);
-    g.addColorStop(0, shade(a.color,-32)); g.addColorStop(.55, a.color); g.addColorStop(1, shade(a.color,-52));
-    c.fillStyle = g; c.fill();
-    /* randlicht langs de linkerkant, zodat de figuur van de vloer loskomt */
-    c.save(); c.clip();
-    c.strokeStyle = shade(a.color, 70); c.globalAlpha = .55; c.lineWidth = 2*z;
-    c.beginPath(); c.moveTo(s.x - breedte/2 + 1*z, bodemY);
-    c.quadraticCurveTo(s.x - breedte/2 - .5*z, bodemY - hoogte*.65, s.x - breedte*.34, bodemY - hoogte*.82);
-    c.stroke(); c.restore();
+    const huid = this._huid(a), haar = this._haar(a);
+    const shirt = a.color;
+    const shirtD = shade(shirt, -34), shirtL = shade(shirt, 26);
+    const broek = niveau >= 3 ? "#232B44" : "#2E3450";
+    const schoen = "#171C2C";
+    const links = a.face < 0;
 
-    /* hoofd met initialen */
-    const hoofdY = bodemY - hoogte - 2*z;
-    c.beginPath(); c.arc(s.x, hoofdY, 9.2*z, 0, 7);
-    c.fillStyle = shade(a.color, 24); c.fill();
-    c.strokeStyle = "rgba(0,0,0,.32)"; c.lineWidth = 1*z; c.stroke();
-    c.fillStyle = "rgba(255,255,255,.94)";
-    c.font = "700 " + (9.5*z).toFixed(1) + 'px "IBM Plex Sans",system-ui,sans-serif';
-    c.fillText(initialen(a.short || a.name), s.x, hoofdY + .5*z);
+    if (zit){
+      /* zittend: benen naar voren, handen op het werkblad */
+      blok(schoen, 3.4, 0, 2.2, 1.4); blok(schoen, 6.4, 0, 2.2, 1.4);
+      blok(broek, 3.4, 1.4, 5.2, 2.6);          /* onderbenen */
+      blok(broek, 4, 4, 4, 2.6);                /* zitvlak */
+      blok(shirtD, 3.6, 6.6, 4.8, 4.2);         /* romp */
+      blok(shirt, 4, 6.6, 4, 4.2);
+      blok(shirtL, 4, 10, 4, .8);
+      blok(huid, 2.6, 8.4, 1.4, 1.2);           /* armen naar het scherm */
+      blok(huid, 8, 8.4, 1.4, 1.2);
+    } else {
+      /* staand of lopend */
+      const l1 = stap === 1 ? .8 : stap === 3 ? -.8 : 0;
+      blok(schoen, 3.6 + l1, 0, 2.2, 1.2);
+      blok(schoen, 6.2 - l1, 0, 2.2, 1.2);
+      blok(broek, 3.8 + l1*.6, 1.2, 2, 4.4);
+      blok(broek, 6.2 - l1*.6, 1.2, 2, 4.4);
+      blok(shade(broek, -12), 3.8, 5, 4.4, 1);   /* riem */
+      blok(shirtD, 3.4, 6, 5.2, 5);              /* romp */
+      blok(shirt, 3.9, 6, 4.2, 5);
+      blok(shirtL, 3.9, 10.4, 4.2, .6);          /* licht op de schouders */
+      /* armen zwaaien mee */
+      const a1 = stap === 1 ? .9 : stap === 3 ? -.9 : 0;
+      blok(shirtD, 2.6, 6.6 + a1*.5, 1.3, 3.6);
+      blok(huid,   2.6, 6.2 + a1*.5, 1.3, 1);
+      blok(shirtD, 8.1, 6.6 - a1*.5, 1.3, 3.6);
+      blok(huid,   8.1, 6.2 - a1*.5, 1.3, 1);
+    }
 
-    /* statusstip: dezelfde kleuren als de legenda van de hub */
+    /* hoofd — bij zitten iets lager */
+    const hy = zit ? 10.8 : 11;
+    blok(huid, 3.9, hy, 4.2, 4);                 /* gezicht */
+    blok(shade(huid, -26), 3.9, hy, 4.2, .5);    /* kin in de schaduw */
+    blok(haar, 3.6, hy + 3.2, 4.8, 1.6);         /* haar bovenop */
+    blok(haar, links ? 7.6 : 3.6, hy + 1.4, .8, 2);  /* pony aan de kijkkant */
+
+    /* ogen: knipperen af en toe, dat maakt het levend */
+    const knipper = !this.reduced && (Math.floor(this.t*1.1 + this._zaad(a.id)) % 7 === 0)
+                    && (this.t*3 % 1) < .34;
+    if (!knipper){
+      blok("#1B2233", links ? 4.4 : 5.2, hy + 1.9, .8, .9);
+      blok("#1B2233", links ? 6.2 : 7,   hy + 1.9, .8, .9);
+    } else {
+      blok(shade(huid, -40), links ? 4.4 : 5.2, hy + 2.1, .8, .4);
+      blok(shade(huid, -40), links ? 6.2 : 7,   hy + 2.1, .8, .4);
+    }
+    /* mond: een blij bedrijf geeft blije gezichten. Dit volgt de welvaart. */
+    if (niveau >= 3) {
+      blok(shade(huid, -46), 5, hy + .7, 2, .5);
+      blok(shade(huid, -46), 4.6, hy + 1, .5, .5);
+      blok(shade(huid, -46), 6.9, hy + 1, .5, .5);
+    } else if (niveau <= 1){
+      blok(shade(huid, -46), 5.1, hy + .8, 1.8, .5);
+    } else {
+      blok(shade(huid, -46), 5.2, hy + .7, 1.6, .5);
+    }
+
+    /* hoe rijker het bedrijf, hoe beter ze erbij lopen */
+    if (niveau >= 2 && !zit){
+      blok(shade(shirt, -60), 3.4, 6, .8, 5);    /* jasje, linkerpand */
+      blok(shade(shirt, -60), 7.8, 6, .8, 5);    /* rechterpand */
+    }
+    if (niveau >= 3){
+      blok(T.gold, 5.7, 7.4, .7, 2.6);           /* das */
+      blok(T.gold, 5.5, 10, 1.1, .6);
+    }
+    if (niveau >= 5){
+      blok("#1B2233", 3.4, hy + 4.6, 5.2, .8);   /* hoedje */
+      blok("#1B2233", 4.2, hy + 5.2, 3.6, 1);
+      blok(T.gold,    3.4, hy + 4.6, 5.2, .3);
+    }
+
+    /* statusstip boven het hoofd */
+    const kop = oy - (hy + 5.4)*P;
     const stipK = STATUS_COLOR[a.status] || T.idle;
-    c.beginPath(); c.arc(s.x + 10*z, hoofdY - 7*z, 4.4*z, 0, 7);
-    c.fillStyle = stipK; c.fill();
-    if (!flauw) this._lichtBol(s.x + 10*z, hoofdY - 7*z, 5*z, stipK, .5);
+    c.fillStyle = stipK;
+    c.fillRect(Math.round(ox + 4.4*P), Math.round(kop - 2.4*P), Math.ceil(2.4*P), Math.ceil(2.4*P));
+    if (!flauw) this._lichtBol(ox + 5.6*P, kop - 1.2*P, 3.4*P, stipK, .55);
     if (a.status === "opgepakt" && !this.reduced){
-      const puls = .25 + Math.abs(Math.sin(this.t*2.2))*.35;
-      c.beginPath(); c.arc(s.x + 10*z, hoofdY - 7*z, (6 + puls*3)*z, 0, 7);
-      c.strokeStyle = "rgba(107,168,245," + puls.toFixed(2) + ")"; c.lineWidth = 1.4*z; c.stroke();
+      const puls = .3 + Math.abs(Math.sin(this.t*2.2))*.4;
+      this._lichtBol(ox + 5.6*P, kop - 1.2*P, 6*P, stipK, puls);
     }
 
     c.restore();
-    a._kop = hoofdY;   /* onthouden voor de labellaag hierboven */
+    a._kop = kop;      /* onthouden voor de labellaag hierboven */
     a._voet = baseY;
   }
-
   /* Wolkje en naam gaan in een aparte laag, ná alle meubels. Anders schuift
    * het bureau van de buurman eroverheen. */
   _agentLabel(a){

@@ -6,6 +6,7 @@
 import { IsoBridge, metaVan, statusVanAgent, STATUS_LABEL } from "./iso/iso-bridge.js";
 import { AGENT_COLOR, THEME } from "./iso/iso-theme.js";
 import { Sterrenkaart } from "./iso/sterrenkaart.js";
+import { berekenWelvaart, NIVEAU_LABEL, MIJLPALEN } from "./iso/welvaart.js";
 
 (function(){
 "use strict";
@@ -60,6 +61,7 @@ function load(){
     pill(S.agents.length+" agents · "+S.drafts.length+" rapporten","ok");
     if(vloer) vloer.sync(S);
     if(sterren) sterren.setState(S);
+    stuurWelvaart();
     renderAll();
   }).catch(function(e){ pill("server niet bereikbaar","err"); console.error(e); });
 }
@@ -73,6 +75,16 @@ function save(){
         load(); })
       .catch(function(){ pill("opslaan mislukt","err"); });
   },220);
+}
+
+/* ---------- hoe goed staat het bedrijf ervoor ---------- */
+/* Eén cijfer, 0 t/m 5, dat de stad aanstuurt: licht, groen, vlaggen, en hoe
+ * de agents erbij lopen. Alle punten staan op het overzicht, zodat je kunt
+ * zien waarom je op dit niveau staat. */
+var welvaart = { niveau:0, punten:0, max:0, nogNodig:0, regels:[] };
+function stuurWelvaart(){
+  welvaart = berekenWelvaart({ state:S, runs:runlijst });
+  if(vloer) vloer.office.setWelvaart(welvaart.niveau);
 }
 
 /* ---------- de vloer ---------- */
@@ -269,6 +281,46 @@ function dagenTerug(n){
   return uit;
 }
 
+/* De stand van het bedrijf: één niveau, en precies waarom. De stad reageert
+ * hierop, dus het moet navolgbaar zijn — geen cijfer uit de lucht. */
+function standKaart(){
+  var w = welvaart, pips = "";
+  for (var i = 0; i <= 5; i++)
+    pips += '<i class="' + (i <= w.niveau ? "aan" : "") + '"></i>';
+
+  var h = '<section class="stand">'
+    + '<div class="stand-kop">'
+    + '<div><b>Niveau ' + w.niveau + '</b><span>van 5 · ' + esc(NIVEAU_LABEL[w.niveau] || "") + '</span></div>'
+    + '<div class="pips">' + pips + '</div>'
+    + '</div>'
+    + '<p class="stand-uit">' + w.punten + ' van ' + w.max + ' punten. '
+    + (w.nogNodig ? 'Nog ' + w.nogNodig + ' tot het volgende niveau.' : 'Hoger dan dit gaat niet.')
+    + ' Hoe hoger, hoe voller de stad: licht, groen, vlaggen, en agents die er beter bij lopen.</p>'
+    + '<ul class="stand-lijst">';
+
+  w.regels.forEach(function(r){
+    var kn = r.mijlpaal
+      ? '<button data-mijlpaal="' + esc(r.mijlpaal) + '" aria-pressed="' + (r.gehaald?"true":"false") + '">'
+        + (r.gehaald ? "✓" : "+") + '</button>'
+      : '<i>' + (r.gehaald ? "✓" : "·") + '</i>';
+    h += '<li class="' + (r.gehaald ? "ja" : "nee") + (r.mijlpaal ? " mijl" : "") + '">'
+       + kn + '<span>' + esc(r.tekst) + '</span>'
+       + '<em>' + esc(r.nu) + '</em></li>';
+  });
+
+  return h + '</ul></section>';
+}
+
+function zetMijlpaal(id){
+  var nu = ((S.bedrijf || {}).mijlpalen || []).slice();
+  var i = nu.indexOf(id);
+  if(i >= 0) nu.splice(i,1); else nu.push(id);
+  fetch("/api/bedrijf", { method:"POST", headers:{"content-type":"application/json"},
+    body: JSON.stringify({ mijlpalen: nu }) })
+    .then(function(r){ if(!r.ok) throw 0; return load(); })
+    .catch(function(){ pill("mijlpaal niet opgeslagen","err"); });
+}
+
 function renderDash(){
   var doel = el("dashblad"); if(!doel) return;
   var caps = S.capabilities || [];
@@ -296,6 +348,8 @@ function renderDash(){
     + '<div class="held-meter">' + meter(bemand, caps.length, "var(--busy)")
     + '<p>' + (caps.length - bemand) + ' staan er nog op papier. Dat werk doe jij nu zelf.</p></div>'
     + '</section>';
+
+  h += standKaart();
 
   /* tegels */
   h += '<div class="tegels">'
@@ -484,7 +538,8 @@ function toolIcoon(id){
 var runlijst = [];
 function laadRuns(){
   return fetch("/api/runs").then(function(r){return r.json();})
-    .then(function(d){ runlijst = d.runs || []; if(view==="werk") renderWerkblad(); })
+    .then(function(d){ runlijst = d.runs || []; stuurWelvaart();
+                       if(view==="werk") renderWerkblad(); if(view==="dash") renderDash(); })
     .catch(function(){});
 }
 
@@ -1120,6 +1175,8 @@ document.addEventListener("click",function(e){
   if(vt){ view=vt.dataset.view; renderAll(); return; }
   var cp=e.target.closest("[data-cap]");
   if(cp){ capSel=cp.dataset.cap; renderAll(); return; }
+  var mp=e.target.closest("[data-mijlpaal]");
+  if(mp){ zetMijlpaal(mp.dataset.mijlpaal); return; }
   var ga=e.target.closest("[data-ga]");
   if(ga){ sel=ga.dataset.ga; if(vloer){ vloer.select(sel); vloer.focus(sel); }
           markeerSelectie(); renderChips(); renderPanel(); return; }

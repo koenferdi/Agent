@@ -122,27 +122,37 @@ export function buildMap(){
   };
   const zet = (o) => { props.push(o); if (o.solid !== false) blok(o); return o; };
 
-  /* de twaalf kavels: gebouw in het midden, groen en een lantaarn op de hoek */
+  /* De twaalf kavels: gebouw in het midden, groen en een lantaarn op de hoek.
+   * "vanaf" is het welvaartsniveau waarop iets verschijnt. Een bedrijf dat
+   * net begint heeft een kale straat; als het loopt komen de bomen, de
+   * lantaarns, de vlaggen en de kraampjes erbij. */
   for (const k of KAVELS){
     zet({ kind:"gebouw", x:k.x0 + 1, y:k.y0 + 1, w:2, d:2, h:k.hoog,
           kavel:k.i, stijl:k.stijl, bezet:false, kleur:null, druk:0 });
-    zet({ kind:"boom",     x:k.x0 + .1,  y:k.y0 + .1,  w:.6, d:.6, h:30, solid:false });
-    zet({ kind:"boom",     x:k.x1 + .3,  y:k.y0 + .15, w:.5, d:.5, h:26, solid:false });
-    zet({ kind:"boom",     x:k.x0 + .15, y:k.y1 + .3,  w:.5, d:.5, h:24, solid:false });
-    zet({ kind:"lantaarn", x:k.x1 + .3,  y:k.y1 + .3,  w:.22, d:.22, h:52, solid:false });
+    zet({ kind:"boom",     x:k.x0 + .1,  y:k.y0 + .1,  w:.6, d:.6, h:30, solid:false, vanaf:1 });
+    zet({ kind:"boom",     x:k.x1 + .3,  y:k.y0 + .15, w:.5, d:.5, h:26, solid:false, vanaf:2 });
+    zet({ kind:"boom",     x:k.x0 + .15, y:k.y1 + .3,  w:.5, d:.5, h:24, solid:false, vanaf:3 });
+    zet({ kind:"lantaarn", x:k.x1 + .3,  y:k.y1 + .3,  w:.22, d:.22, h:52, solid:false, vanaf:1 });
+    zet({ kind:"vlag", x:k.x0 + 1, y:k.y0 + 1, w:2, d:2, h:k.hoog, kavel:k.i,
+          solid:false, vanaf:3 });
   }
 
   /* het plein: de toren met de schotel, de overlegzaal, de kiosk, bankjes */
   zet({ kind:"toren", x:9, y:9, w:3, d:3, h:TOREN.h });
   zet({ kind:"hal",   x:6, y:12, w:3, d:2, h:44 });
-  zet({ kind:"kiosk", x:13, y:6, w:1.4, d:1, h:34 });
-  zet({ kind:"bank",  x:6.6, y:6.6, w:1.2, d:.5, h:14 });
-  zet({ kind:"bank",  x:13.2, y:13.4, w:1.2, d:.5, h:14 });
-  zet({ kind:"boom",  x:7.2, y:14.2, w:.6, d:.6, h:30, solid:false });
-  zet({ kind:"boom",  x:14.1, y:9.2, w:.6, d:.6, h:32, solid:false });
-  zet({ kind:"boom",  x:6.1, y:9.2, w:.6, d:.6, h:28, solid:false });
+  zet({ kind:"kiosk", x:13, y:6, w:1.4, d:1, h:34, vanaf:2 });
+  zet({ kind:"bank",  x:6.6, y:6.6, w:1.2, d:.5, h:14, vanaf:2 });
+  zet({ kind:"bank",  x:13.2, y:13.4, w:1.2, d:.5, h:14, vanaf:2 });
+  zet({ kind:"boom",  x:7.2, y:14.2, w:.6, d:.6, h:30, solid:false, vanaf:1 });
+  zet({ kind:"boom",  x:14.1, y:9.2, w:.6, d:.6, h:32, solid:false, vanaf:2 });
+  zet({ kind:"boom",  x:6.1, y:9.2, w:.6, d:.6, h:28, solid:false, vanaf:3 });
   [[7.2,7.2],[13.8,7.2],[7.2,13.8],[13.8,13.8]].forEach(([x,y]) =>
-    zet({ kind:"lantaarn", x, y, w:.22, d:.22, h:60, solid:false }));
+    zet({ kind:"lantaarn", x, y, w:.22, d:.22, h:60, solid:false, vanaf:1 }));
+
+  /* Het plein groeit mee: eerst een fontein, dan de marktkraampjes. */
+  zet({ kind:"fontein", x:12.4, y:12.4, w:1.4, d:1.4, h:16, vanaf:4 });
+  zet({ kind:"kraam", x:6.3, y:9.3,  w:1.5, d:1, h:26, kleur:"#C9542F", vanaf:4 });
+  zet({ kind:"kraam", x:12.3, y:6.3, w:1.5, d:1, h:26, kleur:"#2E8B6E", vanaf:5 });
 
   /* het archief staat aan de voet van de toren: elk boekje is een rapport */
   zet({ kind:"kast", x:11.4, y:9.2, w:.5, d:1.4, h:40, slot:0, vol:0, solid:false });
