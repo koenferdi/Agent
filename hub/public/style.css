@@ -220,7 +220,14 @@ code{font-family:"IBM Plex Mono",monospace;font-size:.9em;background:var(--panee
   #rail{position:fixed;left:0;right:0;bottom:0;top:auto;flex-direction:row;justify-content:space-around;
     border-right:0;border-top:1px solid var(--lijn-2);padding:4px 2px calc(4px + env(safe-area-inset-bottom));
     background:rgba(11,19,34,.96);backdrop-filter:blur(10px)}
-  #rail .merk,#rail .rek,#rail .onder{display:none}
+  /* Op een telefoon werd de balk afgekapt na zes knoppen: instellingen en
+     dev waren daar niet te bereiken. Nu schuift hij opzij. */
+  #rail{justify-content:flex-start;overflow-x:auto;scrollbar-width:none;
+    -webkit-mask-image:linear-gradient(90deg,transparent,#000 10px,#000 calc(100% - 10px),transparent)}
+  #rail::-webkit-scrollbar{display:none}
+  #rail .merk,#rail .rek{display:none}
+  #rail .onder{opacity:1}
+  #rail button,#rail a{flex:none;min-width:66px}
   #rail button{padding:7px 4px}
   #rail button[aria-current="true"]::before{left:14%;right:14%;top:0;bottom:auto;width:auto;height:2px}
   #blad{padding-bottom:58px}
