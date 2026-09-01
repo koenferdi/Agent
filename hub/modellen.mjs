@@ -9,6 +9,7 @@
  * ook zo gelabeld is, zodat je nooit denkt dat je naar verse gegevens kijkt.
  */
 import { sleutelVan } from "./sleutels.mjs";
+import { spawn } from "node:child_process";
 
 const TIEN_MINUTEN = 10*60*1000;
 let cache = { tijd: 0, modellen: [], bron: null };
@@ -109,6 +110,43 @@ async function vanOpenAI(sleutel){
     .map(m => ({ id: m.id, naam: m.id, aanbieder: "openai", gratis: false, context: null, prijs: null }));
 }
 
+/* ---------- Claude Code op deze machine ----------
+ *
+ * Draait er een ingelogde Claude Code op deze server, dan kan de hub die
+ * aanroepen in plaats van de API. Dat loopt op je eigen abonnement: geen
+ * sleutel, geen aparte rekening. Werkt alleen op een machine waar je zelf
+ * `claude` hebt geïnstalleerd en bent ingelogd.
+ */
+const CLAUDE_CMD = process.env.HUB_CLAUDE_CMD || "claude";
+let ccCache = { tijd: 0, status: null };
+
+export async function claudecodeStatus(forceer = false){
+  if (!forceer && ccCache.status && Date.now() - ccCache.tijd < 60000) return ccCache.status;
+  const status = await new Promise(klaar => {
+    let uit = "", af = false;
+    const kind = spawn(CLAUDE_CMD, ["--version"], { stdio:["ignore","pipe","ignore"] });
+    const stop = setTimeout(() => { af = true; try { kind.kill(); } catch {} 
+      klaar({ beschikbaar:false, reden:"reageert niet" }); }, 6000);
+    kind.stdout.on("data", d => uit += d);
+    kind.on("error", () => { if (af) return; clearTimeout(stop);
+      klaar({ beschikbaar:false, reden:"niet gevonden op deze machine" }); });
+    kind.on("close", code => {
+      if (af) return; clearTimeout(stop);
+      if (code === 0) klaar({ beschikbaar:true, versie: uit.trim().split("\n")[0] });
+      else klaar({ beschikbaar:false, reden:"gaf foutcode " + code });
+    });
+  });
+  ccCache = { tijd: Date.now(), status };
+  return status;
+}
+
+/* De drie modellen die Claude Code met een alias aanspreekt. */
+const CLAUDECODE_MODELLEN = [
+  { id:"opus",   naam:"Claude Opus (via Claude Code)",   aanbieder:"claudecode", gratis:false, abonnement:true, context:200000 },
+  { id:"sonnet", naam:"Claude Sonnet (via Claude Code)", aanbieder:"claudecode", gratis:false, abonnement:true, context:200000 },
+  { id:"haiku",  naam:"Claude Haiku (via Claude Code)",  aanbieder:"claudecode", gratis:false, abonnement:true, context:200000 }
+];
+
 export async function lijst(root, forceer = false){
   if (!forceer && Date.now() - cache.tijd < TIEN_MINUTEN && cache.modellen.length) return cache;
 
@@ -122,6 +160,9 @@ export async function lijst(root, forceer = false){
   ]);
   const uit = [];
   const problemen = [];
+  const cc = await claudecodeStatus(forceer);
+  if (cc.beschikbaar) uit.push(...CLAUDECODE_MODELLEN);
+  else problemen.push("claudecode: " + cc.reden);
   for (const [naam, r] of [["lokaal",lo],["openrouter",or],["groq",gr],["anthropic",an],["google",go],["openai",oa]]){
     if (r.status === "fulfilled") uit.push(...r.value);
     else problemen.push(naam + ": " + (r.reason && r.reason.message || "mislukt"));
@@ -131,7 +172,10 @@ export async function lijst(root, forceer = false){
     cache = { tijd: Date.now(), modellen: INGEBAKKEN, bron: "ingebakken", problemen };
     return cache;
   }
-  uit.sort((a,b) => ((b.aanbieder==="lokaal") - (a.aanbieder==="lokaal")) || (b.gratis - a.gratis) || a.naam.localeCompare(b.naam));
+  /* Claude Code eerst: die kost je niets extra's als je al een abonnement hebt. */
+  uit.sort((a,b) => ((b.aanbieder==="claudecode") - (a.aanbieder==="claudecode"))
+                 || ((b.aanbieder==="lokaal") - (a.aanbieder==="lokaal"))
+                 || (b.gratis - a.gratis) || a.naam.localeCompare(b.naam));
   cache = { tijd: Date.now(), modellen: uit, bron: "live", problemen };
   return cache;
 }
@@ -140,6 +184,7 @@ export async function lijst(root, forceer = false){
  * nodig; de rest wel. */
 export async function bruikbareAanbieders(root){
   const uit = new Set(["lokaal"]);
+  if ((await claudecodeStatus()).beschikbaar) uit.add("claudecode");
   for (const a of ["openrouter","groq","google","anthropic","openai"])
     if (await sleutelVan(root, a)) uit.add(a);
   return uit;
@@ -150,7 +195,9 @@ export async function bruikbareAanbieders(root){
  * standaard maar een foutmelding die staat te wachten. */
 export function standaard(modellen, bruikbaar){
   const kan = m => !bruikbaar || bruikbaar.has(m.aanbieder);
-  return (modellen.find(m => m.aanbieder === "lokaal" && kan(m))
+  return (modellen.find(m => m.aanbieder === "claudecode" && m.id === "sonnet" && kan(m))
+      || modellen.find(m => m.aanbieder === "claudecode" && kan(m))
+      || modellen.find(m => m.aanbieder === "lokaal" && kan(m))
       || modellen.find(m => m.gratis && kan(m))
       || modellen.find(kan)
       || modellen[0] || INGEBAKKEN[0]);
@@ -197,12 +244,71 @@ async function* regels(res){
  * tokens. Zolang er vragen terugkomen is het model nog niet klaar. */
 export async function praat({ root, aanbieder, model, systeem, verloop,
                               gereedschap = [], maxTokens = 4000, onDelta, signal }){
-  const sleutel = aanbieder === "lokaal" ? "lokaal" : await sleutelVan(root, aanbieder);
+  const sleutel = (aanbieder === "lokaal" || aanbieder === "claudecode")
+    ? aanbieder : await sleutelVan(root, aanbieder);
   if (!sleutel) throw new Error("Er staat nog geen sleutel voor " + aanbieder
     + ". Zet er een bij Instellingen, of kies een model dat er geen nodig heeft.");
 
   let tekst = "", tokensIn = 0, tokensUit = 0;
   const vragen = [];
+
+  /* Claude Code op deze machine. Wij sturen geen eigen gereedschap mee: hij
+   * heeft zijn eigen Read, Glob, Grep en het web, en dat is beter dan wat wij
+   * kunnen aanbieden. Schrijven doet hij niet — dat blijft aan de hub. */
+  if (aanbieder === "claudecode"){
+    const vraag = verloop.map(b => b.rol === "gereedschap"
+      ? "Uitkomst van " + b.naam + ":\n" + b.tekst
+      : b.tekst).filter(Boolean).join("\n\n");
+    const args = ["-p", "--model", model || "sonnet",
+                  "--output-format", "stream-json", "--include-partial-messages", "--verbose",
+                  "--allowedTools", "Read", "Glob", "Grep", "WebSearch", "WebFetch",
+                  "--restricted"];
+    if (systeem) args.push("--append-system-prompt", systeem);
+
+    const uit = await new Promise((klaar, mis) => {
+      const kind = spawn(CLAUDE_CMD, args, { cwd: root, stdio:["pipe","pipe","pipe"] });
+      let rest = "", fout = "", antwoord = "", gebruik = null, kosten = null, misging = null;
+      const stoppen = () => { try { kind.kill("SIGTERM"); } catch {} };
+      if (signal) signal.addEventListener("abort", stoppen, { once:true });
+
+      kind.stdout.on("data", d => {
+        rest += d.toString();
+        const regels = rest.split("\n"); rest = regels.pop() || "";
+        for (const r of regels){
+          if (!r.trim()) continue;
+          let j; try { j = JSON.parse(r); } catch { continue; }
+          if (j.type === "stream_event" && j.event?.type === "content_block_delta"
+              && j.event.delta?.type === "text_delta"){
+            antwoord += j.event.delta.text;
+            onDelta && onDelta(j.event.delta.text);
+          }
+          if (j.type === "result"){
+            if (j.is_error) misging = String(j.result || j.subtype || "mislukt");
+            else if (!antwoord) antwoord = String(j.result || "");
+            gebruik = j.usage || null;
+            kosten = typeof j.total_cost_usd === "number" ? j.total_cost_usd : null;
+          }
+        }
+      });
+      kind.stderr.on("data", d => { fout += d.toString(); });
+      kind.on("error", e => mis(new Error("Claude Code starten lukte niet: " + e.message)));
+      kind.on("close", code => {
+        if (signal) signal.removeEventListener("abort", stoppen);
+        if (misging) return mis(new Error("Claude Code: " + misging.slice(0,300)));
+        if (code !== 0 && !antwoord)
+          return mis(new Error("Claude Code stopte met code " + code
+            + (fout ? ": " + fout.trim().slice(0,300) : "")));
+        klaar({ antwoord, gebruik, kosten });
+      });
+
+      kind.stdin.end(vraag);
+    });
+
+    tekst = uit.antwoord;
+    tokensIn  = (uit.gebruik && (uit.gebruik.input_tokens || 0)) || 0;
+    tokensUit = (uit.gebruik && (uit.gebruik.output_tokens || 0)) || 0;
+    return { tekst, vragen, tokensIn, tokensUit, kosten: uit.kosten };
+  }
 
   if (aanbieder === "anthropic"){
     const berichten = [];

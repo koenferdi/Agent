@@ -134,6 +134,132 @@ const DEEL_B = ["punt","lijn","werk","haven","wal","kade","schuur","hof","gaard"
                 "loods","stee","laag","zicht","tij","boog","gang","vlak","huis","kern"];
 const STAART = ["Studio","Lab","Collectief","Werk","Co","Bureau","Atelier","Groep"];
 
+/* Wat voor bedrijf ben je aan het opzetten? Elk soort krijgt een ploeg die
+ * daar echt bij past, met de reden erbij. Dit is een vaste lijst en geen
+ * model: hij werkt zonder sleutel, geeft elke keer hetzelfde, en je kunt hem
+ * nalezen. Wil je hem laten verfijnen door Claude, dan kan dat erna.
+ *
+ * De volgorde is de volgorde van aanraden: de eerste drie zijn de kern. */
+export const SOORTEN = [
+  {
+    id: "webshop", label: "Webshop of productverkoop",
+    kort: "Je verkoopt spullen online, zelf ingekocht of zelf gemaakt.",
+    agents: ["market-researcher","pricing-analyst","content-creator","competitor-watch","bookkeeper"],
+    waarom: {
+      "market-researcher": "Uitzoeken of er vraag is voordat je inkoopt.",
+      "pricing-analyst": "Je marge staat of valt met de prijs.",
+      "content-creator": "Productteksten en advertenties zijn dagelijks werk.",
+      "competitor-watch": "Prijzen van concurrenten bewegen elke week.",
+      "bookkeeper": "Inkoop, verkoop en btw lopen snel door elkaar."
+    }
+  },
+  {
+    id: "dienst", label: "Zelfstandige dienstverlener",
+    kort: "Je verkoopt je eigen uren: advies, ontwerp, bouw, zorg.",
+    agents: ["customer-researcher","offer-builder","sales-agent","content-creator"],
+    waarom: {
+      "customer-researcher": "Weten wie je precies helpt scheelt maanden.",
+      "offer-builder": "Van 'ik doe van alles' naar één helder aanbod.",
+      "sales-agent": "Opvolging is waar de meeste opdrachten blijven liggen.",
+      "content-creator": "Zichtbaar blijven zonder er elke dag tijd in te stoppen."
+    }
+  },
+  {
+    id: "bureau", label: "Bureau met een team",
+    kort: "Je levert werk met meer mensen: marketing, bouw, IT, administratie.",
+    agents: ["customer-researcher","offer-builder","ops-planner","sales-agent","bookkeeper"],
+    waarom: {
+      "customer-researcher": "Een bureau zonder scherp klantbeeld pakt alles aan.",
+      "offer-builder": "Vaste pakketten schelen offertewerk.",
+      "ops-planner": "Wie doet wat wanneer — dat is het echte werk.",
+      "sales-agent": "De pijplijn vullen terwijl je levert.",
+      "bookkeeper": "Uren, facturen en projectmarge bij elkaar houden."
+    }
+  },
+  {
+    id: "saas", label: "Software of SaaS",
+    kort: "Je bouwt iets dat mensen per maand gebruiken.",
+    agents: ["customer-researcher","strategy-analyst","pricing-analyst","support-agent","data-analyst"],
+    waarom: {
+      "customer-researcher": "Bouwen zonder klantbeeld is de duurste fout die er is.",
+      "strategy-analyst": "Wat bouw je wel en wat niet.",
+      "pricing-analyst": "Abonnementsprijzen bepalen je hele model.",
+      "support-agent": "Vragen van gebruikers zijn je beste roadmap.",
+      "data-analyst": "Zien waar mensen afhaken."
+    }
+  },
+  {
+    id: "content", label: "Content, video of nieuwsbrief",
+    kort: "Je bouwt een publiek en verdient aan wat je maakt.",
+    agents: ["content-creator","market-researcher","competitor-watch","data-analyst"],
+    waarom: {
+      "content-creator": "De motor van dit model: er moet gemaakt worden.",
+      "market-researcher": "Weten waar het publiek zit en waar het praat.",
+      "competitor-watch": "Zien wat er in jouw hoek aanslaat.",
+      "data-analyst": "Welke video's en mails echt iets doen."
+    }
+  },
+  {
+    id: "lokaal", label: "Lokale dienst of winkel",
+    kort: "Je werkt in je eigen stad of regio: klussen, kapper, horeca, praktijk.",
+    agents: ["customer-researcher","content-creator","ops-planner","bookkeeper"],
+    waarom: {
+      "customer-researcher": "Wat zoeken mensen in jouw omgeving echt.",
+      "content-creator": "Vindbaar zijn en reviews verzamelen.",
+      "ops-planner": "Agenda, afspraken en voorraad in de hand.",
+      "bookkeeper": "Kas, bonnetjes en btw op orde."
+    }
+  },
+  {
+    id: "resale", label: "Inkopen en doorverkopen",
+    kort: "Je koopt goedkoop in en verkoopt door: tweedehands, dropship, handel.",
+    agents: ["market-researcher","pricing-analyst","competitor-watch","bookkeeper","ops-planner"],
+    waarom: {
+      "market-researcher": "Waar zit vraag en waar zit voorraad.",
+      "pricing-analyst": "Hier verdien je aan het verschil, niets anders.",
+      "competitor-watch": "Prijzen bewegen dagelijks.",
+      "bookkeeper": "Inkoopprijs, verzendkosten en marge per stuk.",
+      "ops-planner": "Wat je waar hebt liggen en wanneer je bijkoopt."
+    }
+  },
+  {
+    id: "opleiding", label: "Cursus, coaching of opleiding",
+    kort: "Je verkoopt kennis: trainingen, begeleiding, een programma.",
+    agents: ["customer-researcher","offer-builder","content-creator","sales-agent","support-agent"],
+    waarom: {
+      "customer-researcher": "Waar zitten mensen echt mee, in hun eigen woorden.",
+      "offer-builder": "Van losse kennis naar een programma dat je kunt verkopen.",
+      "content-creator": "Gratis materiaal is hier het verkoopkanaal.",
+      "sales-agent": "Aanmeldingen komen zelden vanzelf.",
+      "support-agent": "Deelnemers hebben vragen, elke ronde dezelfde."
+    }
+  },
+  {
+    id: "b2b", label: "Zakelijke dienst aan bedrijven",
+    kort: "Je levert aan andere bedrijven, met langere trajecten.",
+    agents: ["customer-researcher","strategy-analyst","sales-agent","offer-builder","competitor-watch"],
+    waarom: {
+      "customer-researcher": "Bij wie ligt het probleem, en wie beslist erover.",
+      "strategy-analyst": "Op welk segment zet je in.",
+      "sales-agent": "Lange trajecten vragen opvolging, niet geluk.",
+      "offer-builder": "Een voorstel dat je kunt herhalen.",
+      "competitor-watch": "Weten waartegen je het opneemt."
+    }
+  },
+  {
+    id: "onbekend", label: "Weet ik nog niet",
+    kort: "Je hebt een idee maar nog geen vorm. Begin bij uitzoeken.",
+    agents: ["market-researcher","customer-researcher","strategy-analyst"],
+    waarom: {
+      "market-researcher": "Is er een markt, en hoe ziet die eruit.",
+      "customer-researcher": "Heeft iemand dit probleem echt.",
+      "strategy-analyst": "Van wat je vindt naar een besluit."
+    }
+  }
+];
+
+export function soortVan(id){ return SOORTEN.find(s => s.id === id) || null; }
+
 export function namen(zaad = Date.now(), n = 6){
   let s = Number(zaad) || 1;
   const rnd = () => { s = (s*1664525 + 1013904223) % 4294967296; return s/4294967296; };

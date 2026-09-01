@@ -9,9 +9,9 @@ import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
 import { platform, networkInterfaces } from "node:os";
 import { randomBytes, timingSafeEqual, createHash } from "node:crypto";
-import { CATALOGUS, namen, maakAgents, bestaande } from "./agentfabriek.mjs";
+import { CATALOGUS, SOORTEN, namen, maakAgents, bestaande } from "./agentfabriek.mjs";
 import { AANBIEDERS, overzicht as sleutelOverzicht, zet as zetSleutel } from "./sleutels.mjs";
-import { lijst as modellenLijst, standaard as standaardModel, bruikbareAanbieders } from "./modellen.mjs";
+import { lijst as modellenLijst, standaard as standaardModel, bruikbareAanbieders, claudecodeStatus } from "./modellen.mjs";
 import { draai, runs as leesRuns } from "./runner.mjs";
 import { status as gereedschapStatus } from "./gereedschap.mjs";
 
@@ -301,6 +301,7 @@ const server = createServer(async (req,res)=>{
         bron: l.bron, problemen: l.problemen || [],
         opgehaald: new Date(l.tijd).toISOString(),
         standaard: standaardModel(l.modellen, bruikbaar).id,
+        claudecode: await claudecodeStatus(),
         sleutels: await sleutelOverzicht(ROOT)
       }));
     }
@@ -349,6 +350,7 @@ const server = createServer(async (req,res)=>{
     if(url.pathname === "/api/catalogus"){
       return send(res,200,JSON.stringify({
         catalogus: CATALOGUS,
+        soorten: SOORTEN,
         bestaande: await bestaande(ROOT),
         bedrijf: await readBedrijf()
       }));
@@ -367,7 +369,10 @@ const server = createServer(async (req,res)=>{
       const uit = await maakAgents(ROOT, gekozen, naam);
       const bedrijf = {
         operator,
-        bedrijf: { naam, wat: String(g.wat || "").trim().slice(0,400), fase: g.fase || "valideren" },
+        bedrijf: { naam, wat: String(g.wat || "").trim().slice(0,400),
+                   soort: String(g.soort || "").trim().slice(0,40),
+                   fase: g.fase || "valideren" },
+        voorkeuren: { aansluiting: String(g.aansluiting || "").slice(0,40) },
         agents: gekozen,
         aangemaakt: (await readBedrijf())?.aangemaakt || new Date().toISOString(),
         bijgewerkt: new Date().toISOString()

@@ -121,9 +121,13 @@ export async function draai({ root, agentId, opdracht, modelId, stap, signal }){
   meld("model", { model: model.id, aanbieder: model.aanbieder, gratis: model.gratis,
                   gereedschap: beschikbaar.map(g => g.id) });
 
-  const vorm = model.aanbieder === "anthropic" ? alsAnthropic(beschikbaar) : alsOpenAI(beschikbaar);
+  /* Claude Code heeft zijn eigen Read, Glob, Grep en web. Onze gereedschappen
+   * hoeven er dan niet bij; hij gebruikt die van zichzelf. */
+  const vorm = model.aanbieder === "claudecode" ? []
+             : model.aanbieder === "anthropic" ? alsAnthropic(beschikbaar)
+             : alsOpenAI(beschikbaar);
   const verloop = [{ rol: "gebruiker", tekst: opdracht }];
-  let uit = { tekst: "", tokensIn: 0, tokensUit: 0 }, gebruikt = [];
+  let uit = { tekst: "", tokensIn: 0, tokensUit: 0, kosten: null }, gebruikt = [];
 
   for (let ronde = 0; ronde < MAX_RONDES; ronde++){
     let r;
@@ -138,6 +142,9 @@ export async function draai({ root, agentId, opdracht, modelId, stap, signal }){
       throw e;
     }
     uit.tokensIn += r.tokensIn; uit.tokensUit += r.tokensUit;
+    /* Claude Code rekent zelf af en geeft de prijs terug; die is echt gemeten
+     * en gaat vóór onze schatting uit de prijslijst. */
+    if (r.kosten != null) uit.kosten = (uit.kosten || 0) + r.kosten;
     uit.tekst = r.tekst;
 
     if (!r.vragen.length) break;
@@ -162,7 +169,7 @@ export async function draai({ root, agentId, opdracht, modelId, stap, signal }){
   await writeFile(pad, kop + uit.tekst.trim() + "\n", "utf8");
   meld("stap", { tekst: "Rapport geschreven: drafts/" + naam });
 
-  const k = kosten(model, uit.tokensIn, uit.tokensUit);
+  const k = uit.kosten != null ? +uit.kosten.toFixed(6) : kosten(model, uit.tokensIn, uit.tokensUit);
   const samen = {
     agentId, opdracht, model: model.id, aanbieder: model.aanbieder,
     bestand: naam, tokensIn: uit.tokensIn, tokensUit: uit.tokensUit, kosten: k,
