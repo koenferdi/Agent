@@ -93,3 +93,54 @@ export const STATUS_COLOR = {
   geparkeerd: THEME.idle,
   offphase:   THEME.idle
 };
+
+/* ---------- thema's voor de stad ----------
+ *
+ * Eén set kleuren omzetten verandert het hele beeld. De basis blijft THEME;
+ * een thema legt daar een paar waarden overheen. Zo blijft er maar één
+ * plek waar een kleur echt vandaan komt.
+ *
+ * gloed = de kleur onder de stad (r,g,b). raam = het licht in de ramen als
+ * er gewerkt wordt. lucht = de achtergrond.
+ */
+export const THEMAS = [
+  {
+    id: "nacht", naam: "Nacht", kort: "Diepblauw met magenta grond. De standaard.",
+    over: {}, gloed: [185, 58, 224]
+  },
+  {
+    id: "avond", naam: "Avond", kort: "Warmer, zachter, meer lamplicht dan neon.",
+    over: {
+      bg:"#120E1C", straatA:"#1B1626", straatB:"#161221", stoep:"#2A2033",
+      gebouw:"#33294A", gebouwDak:"#413357", gebouwLeeg:"#241C33",
+      raamAan:"#FFCE86", raamKoel:"#FFB27A", raamUit:"#3A2E4C",
+      groen:"#3B7A5E", lamplicht:"#FFD9A0", grid:"rgba(255,200,150,.06)"
+    },
+    gloed: [235, 120, 70]
+  },
+  {
+    id: "dag", naam: "Dag", kort: "Licht en rustig. Voor overdag werken.",
+    over: {
+      bg:"#101A2B", straatA:"#26344F", straatB:"#223049", stoep:"#33456A",
+      gebouw:"#3E5885", gebouwDak:"#4C6B9E", gebouwLeeg:"#2B3A58",
+      raamAan:"#FFE3A8", raamKoel:"#CFE6FF", raamUit:"#51698F",
+      groen:"#4A9E77", lamplicht:"#DCE9FF", grid:"rgba(180,210,255,.10)",
+      text:"#F2F6FF"
+    },
+    gloed: [90, 150, 235]
+  },
+  {
+    id: "neon", naam: "Neon", kort: "Hard cyaan en roze. Het felst van de vier.",
+    over: {
+      bg:"#070A1A", straatA:"#0C1330", straatB:"#0A1029", stoep:"#152047",
+      gebouw:"#182A63", gebouwDak:"#20387E", gebouwLeeg:"#111B3E",
+      raamAan:"#FF61C8", raamKoel:"#4DF0FF", raamUit:"#1E2E68",
+      groen:"#22A88C", lamplicht:"#8CF6FF", grid:"rgba(120,255,255,.09)"
+    },
+    gloed: [255, 40, 190]
+  }
+];
+
+export function themaVan(id){
+  return THEMAS.find(t => t.id === id) || THEMAS[0];
+}

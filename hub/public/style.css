@@ -658,3 +658,77 @@ details.adder .body{padding:14px}
 .stand-lijst li.mijl button:hover{border-color:var(--gold);color:var(--gold)}
 .stand-lijst li em{margin-left:auto;font-style:normal;font-family:"IBM Plex Mono",monospace;
   font-size:10.5px;color:var(--ink-faint);opacity:.8;white-space:nowrap}
+
+/* ---------- instellingen en dev ---------- */
+.ins{background:var(--paneel);border:1px solid var(--lijn);border-radius:10px;
+  padding:16px 18px;margin-bottom:16px}
+.ins h3{margin:0 0 4px;font-size:14.5px;font-weight:600}
+.ins-uit,.ins p.note{margin:6px 0 14px;font-size:12.5px;color:var(--ink-faint);line-height:1.55;max-width:72ch}
+.ins-rij{display:grid;gap:10px;grid-template-columns:1fr;margin:12px 0}
+@media (min-width:820px){.ins-rij{grid-template-columns:1fr 1fr}}
+.ins-kaart{background:var(--nacht-2);border:1px solid var(--lijn);border-radius:7px;padding:12px 13px}
+.ins-kaart.ja{border-color:var(--ok)}
+.ins-kaart b{display:block;font-size:13.5px;font-weight:600;margin-bottom:3px}
+.ins-kaart p{margin:0 0 9px;font-size:12.5px;color:var(--ink-faint);line-height:1.5}
+.ins-kaart select{width:100%}
+.staat{font-family:"IBM Plex Mono",monospace;font-size:11px}
+.staat.ok{color:var(--ok)} .staat.uit{color:var(--ink-faint)}
+
+.ins-sleutels{display:grid;gap:1px;background:var(--lijn);border:1px solid var(--lijn);
+  border-radius:7px;overflow:hidden;margin-top:12px}
+.sleutelrij{background:var(--nacht-2);padding:11px 13px}
+.sleutelrij .kop{display:flex;gap:9px;align-items:baseline;flex-wrap:wrap}
+.sleutelrij .kop b{font-size:13.5px}
+.sleutelrij .kop a{margin-left:auto;font-size:11.5px;color:var(--gold)}
+.sleutelrij p{margin:5px 0 8px;font-size:12px;color:var(--ink-faint)}
+.sleutelrij .tools{display:flex;gap:7px}
+.sleutelrij input{flex:1;min-width:140px;font-family:"IBM Plex Mono",monospace;font-size:12.5px}
+
+.mijlrij{display:flex;flex-wrap:wrap;gap:8px}
+.mijlrij .mijl{display:flex;align-items:center;gap:8px;background:var(--nacht-2);
+  border:1px solid var(--lijn-2);border-radius:99px;padding:8px 14px 8px 9px;
+  font-size:12.5px;color:var(--ink-faint);cursor:pointer}
+.mijlrij .mijl i{width:19px;height:19px;border-radius:99px;display:grid;place-items:center;
+  border:1px solid var(--lijn-2);font-style:normal;font-size:11px}
+.mijlrij .mijl.aan{color:var(--ok);border-color:var(--ok)}
+.mijlrij .mijl.aan i{border-color:var(--ok);background:color-mix(in srgb,var(--ok) 22%,transparent)}
+
+.themarij{display:grid;gap:9px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin-bottom:14px}
+.thema{background:var(--nacht-2);border:1px solid var(--lijn);border-radius:8px;padding:11px 12px;
+  text-align:left;cursor:pointer;display:block}
+.thema.aan{border-color:var(--gold)}
+.thema .staal{display:block;height:26px;border-radius:5px;margin-bottom:8px}
+.thema b{display:block;font-size:13px;font-weight:600}
+.thema span{display:block;font-size:11.5px;color:var(--ink-faint);line-height:1.45;margin-top:2px}
+
+.schakelrij{display:grid;gap:9px;grid-template-columns:1fr;margin-bottom:12px}
+@media (min-width:820px){.schakelrij{grid-template-columns:1fr 1fr}}
+.schakel{display:flex;gap:11px;align-items:flex-start;text-align:left;cursor:pointer;
+  background:var(--nacht-2);border:1px solid var(--lijn);border-radius:8px;padding:11px 12px}
+.schakel i{width:34px;height:19px;border-radius:99px;background:var(--lijn-2);flex:none;
+  position:relative;margin-top:2px;transition:background .15s}
+.schakel i::after{content:"";position:absolute;top:2px;left:2px;width:15px;height:15px;border-radius:99px;
+  background:var(--ink-faint);transition:transform .15s,background .15s}
+.schakel.aan i{background:color-mix(in srgb,var(--ok) 40%,transparent)}
+.schakel.aan i::after{transform:translateX(15px);background:var(--ok)}
+.schakel b{display:block;font-size:13px;font-weight:600}
+.schakel em{display:block;font-style:normal;font-size:11.5px;color:var(--ink-faint);line-height:1.45;margin-top:2px}
+
+.devlijst{display:grid;gap:1px;background:var(--lijn);border:1px solid var(--lijn);
+  border-radius:7px;overflow:hidden}
+.devrij{display:flex;gap:12px;align-items:baseline;background:var(--nacht-2);padding:8px 12px;
+  font-family:"IBM Plex Mono",monospace;font-size:12px}
+.devrij span{color:var(--ink-faint);min-width:120px}
+.devrij b{color:var(--ink-soft);font-weight:500;word-break:break-all}
+.devrij b.ok{color:var(--ok)} .devrij b.wait{color:var(--wait)}
+.devfouten{margin-top:10px;border-left:2px solid var(--wait);padding-left:11px;
+  font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--wait);display:grid;gap:4px}
+.devruns details{background:var(--nacht-2);border:1px solid var(--lijn);border-radius:7px;
+  margin-bottom:7px;overflow:hidden}
+.devruns summary{cursor:pointer;padding:9px 12px;font-family:"IBM Plex Mono",monospace;font-size:12px;
+  color:var(--ink-soft);display:flex;align-items:center;gap:8px}
+.devruns summary .stip{width:7px;height:7px;border-radius:99px;flex:none}
+.devruns pre,.ruw{margin:0;padding:12px;background:var(--nacht);overflow:auto;
+  font-family:"IBM Plex Mono",monospace;font-size:11.5px;line-height:1.5;color:var(--ink-soft);
+  max-height:52vh;border-top:1px solid var(--lijn)}
+.ruw{border:1px solid var(--lijn);border-radius:7px;margin-top:10px}

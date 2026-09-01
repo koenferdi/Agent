@@ -317,6 +317,31 @@ const server = createServer(async (req,res)=>{
     if(url.pathname === "/api/gereedschap"){
       return send(res,200,JSON.stringify({ gereedschap: await gereedschapStatus(ROOT) }));
     }
+    // Alles wat je nodig hebt als er iets niet werkt: waar draait dit, wat
+    // is er gevonden, en wat ging er mis bij het ophalen van de modellen.
+    if(url.pathname === "/api/dev"){
+      const l = await modellenLijst(ROOT);
+      const bruikbaar = await bruikbareAanbieders(ROOT);
+      return send(res,200,JSON.stringify({
+        node: process.versions.node,
+        platform: process.platform,
+        pid: process.pid,
+        geheugen: Math.round(process.memoryUsage().rss/1048576) + " MB",
+        draaitSinds: new Date(Date.now() - process.uptime()*1000).toISOString(),
+        workspace: ROOT,
+        poort: PORT,
+        host: HOST,
+        slot: AUTH_ON,
+        claudecode: await claudecodeStatus(),
+        modellen: { bron: l.bron, aantal: l.modellen.length,
+                    opgehaald: new Date(l.tijd).toISOString(), problemen: l.problemen || [] },
+        bruikbaar: [...bruikbaar],
+        sleutels: await sleutelOverzicht(ROOT),
+        gereedschap: await gereedschapStatus(ROOT),
+        omgeving: Object.keys(process.env).filter(k => /^(HUB_|SEARX|NO_OPEN|GEEN_SLOT|PORT|HOST)/.test(k))
+                    .map(k => k + (/KEY|TOKEN|SECRET|PASSWORD/i.test(k) ? "=(verborgen)" : "=" + process.env[k]))
+      }));
+    }
     if(url.pathname === "/api/runs"){
       return send(res,200,JSON.stringify({ runs: await leesRuns(ROOT) }));
     }

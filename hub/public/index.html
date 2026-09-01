@@ -30,7 +30,8 @@
     <button data-view="tools" aria-current="false"><i><svg viewBox="0 0 20 20" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="10" cy="10" r="2.6"/><path d="M10 1.8v2.4M10 15.8v2.4M18.2 10h-2.4M4.2 10H1.8M15.8 4.2l-1.7 1.7M5.9 14.1l-1.7 1.7M15.8 15.8l-1.7-1.7M5.9 5.9 4.2 4.2"/></svg></i><span>Gereedschap</span></button>
     <button data-view="werk"  aria-current="false"><i><svg viewBox="0 0 20 20" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="2.6" y="4.6" width="14.8" height="12.8" rx="1.6"/><path d="M6.8 4.6V2.8M13.2 4.6V2.8M2.6 8.4h14.8M6.4 12h3M6.4 14.6h6"/></svg></i><span>Werk</span></button>
     <div class="rek"></div>
-    <button id="railSleutels" class="onder"><i>⚿</i><span>Sleutels</span></button>
+    <button data-view="instel" class="onder" aria-current="false"><i><svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="10" r="2.8"/><path d="M10 2.2v2M10 15.8v2M17.8 10h-2M4.2 10h-2M15.5 4.5l-1.4 1.4M5.9 14.1l-1.4 1.4M15.5 15.5l-1.4-1.4M5.9 5.9 4.5 4.5" stroke-linecap="round"/></svg></i><span>Instellingen</span></button>
+    <button data-view="dev" class="onder" aria-current="false"><i><svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 6 3 10l4 4M13 6l4 4-4 4M11.4 3.4 8.6 16.6"/></svg></i><span>Dev</span></button>
     <a class="onder" href="/start.html"><i>+</i><span>Opzetten</span></a>
   </nav>
 
@@ -102,6 +103,10 @@
 
       <!-- werk: runs, beslissingen, rapporten -->
       <section class="zicht" data-zicht="werk"><div class="blad-in" id="werkblad"></div></section>
+
+      <!-- instellingen en dev -->
+      <section class="zicht" data-zicht="instel"><div class="blad-in breed" id="instelblad"></div></section>
+      <section class="zicht" data-zicht="dev"><div class="blad-in breed" id="devblad"></div></section>
     </div>
   </main>
 

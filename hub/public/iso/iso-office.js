@@ -15,7 +15,7 @@
  *   rondloop    — verzonnen behoeften die vanzelf zakken. Standaard uit.
  *                 Alles wat hieruit komt krijgt soort "demo".
  */
-import { THEME, STATUS_COLOR } from "./iso-theme.js";
+import { THEME, STATUS_COLOR, themaVan } from "./iso-theme.js";
 import { TILE, GRID, DESKS, ZONES, KAVELS, SPOTS, LAMPEN, VERBINDINGEN, TOREN,
          stoelVan, parkeerVan, bureausVan, buildMap, vrij, zoneOp, zoneVan } from "./iso-map.js";
 
@@ -67,6 +67,8 @@ export class IsoOffice {
      * ligt: licht, groen, versiering, en hoe de agents erbij lopen. De hub
      * rekent dit uit uit echte tellingen; de motor gelooft hem gewoon. */
     this.welvaart = 0;
+    this.themaId = "nacht";
+    this.gloedKleur = [185, 58, 224];
     this.floaters = [];
     this.selectedId = null; this.hoverAgent = null; this.hover = null;
     this.sleepAgent = null; this.mikpunt = null;
@@ -156,6 +158,15 @@ export class IsoOffice {
 
   /* Hoe goed het bedrijf ervoor staat: 0 (net begonnen) t/m 5 (het loopt).
    * Alles wat hierop reageert staat in _prop en _grondgloed. */
+  /* Een ander thema: dezelfde stad, andere kleuren. */
+  setThema(id){
+    const t = themaVan(id);
+    this.themaId = t.id;
+    this.theme = Object.assign({}, THEME, t.over || {});
+    this.gloedKleur = t.gloed || [185, 58, 224];
+    return this;
+  }
+
   setWelvaart(n){
     this.welvaart = clamp(Math.round(n || 0), 0, 5);
     return this;
@@ -643,11 +654,16 @@ export class IsoOffice {
     const r = Math.max(W, H)*.75;
     /* koud paars als je net begint, warm en vol als het loopt */
     const n = (this.welvaart || 0)/5;
-    const rood  = Math.round(120 + n*115), groen = Math.round(40 + n*35), blauw = Math.round(200 - n*40);
+    const [gr, gg, gb] = this.gloedKleur || [185, 58, 224];
+    /* koud en flauw als je net begint, vol in de themakleur als het loopt */
+    const rood  = Math.round(gr*(.55 + n*.45));
+    const groen = Math.round(gg*(.55 + n*.45));
+    const blauw = Math.round(gb*(.85 + n*.15));
     const kracht = .22 + n*.2;
     const g = c.createRadialGradient(mid.x, mid.y + H*.18, 0, mid.x, mid.y + H*.18, r);
     g.addColorStop(0,  "rgba(" + rood + "," + groen + "," + blauw + "," + kracht.toFixed(2) + ")");
-    g.addColorStop(.45,"rgba(" + Math.round(rood*.65) + ",45,190," + (kracht*.5).toFixed(2) + ")");
+    g.addColorStop(.45,"rgba(" + Math.round(rood*.6) + "," + Math.round(groen*.6) + ","
+                                + Math.round(blauw*.85) + "," + (kracht*.5).toFixed(2) + ")");
     g.addColorStop(1,  "rgba(11,18,32,0)");
     c.save(); c.globalCompositeOperation = "lighter";
     c.fillStyle = g; c.fillRect(0,0,W,H); c.restore();

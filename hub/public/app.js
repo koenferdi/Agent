@@ -7,6 +7,7 @@ import { IsoBridge, metaVan, statusVanAgent, STATUS_LABEL } from "./iso/iso-brid
 import { AGENT_COLOR, THEME } from "./iso/iso-theme.js";
 import { Sterrenkaart } from "./iso/sterrenkaart.js";
 import { berekenWelvaart, NIVEAU_LABEL, MIJLPALEN } from "./iso/welvaart.js";
+import { THEMAS } from "./iso/iso-theme.js";
 
 (function(){
 "use strict";
@@ -24,6 +25,8 @@ var view = "dash";           // dash | map | ster | hier | tools | werk
 var capSel = null;           // geselecteerde capaciteit in de hierarchie
 var saveTimer=null;
 var vloer = null;            // de IsoBridge
+var soorten = [];            // soorten bedrijf uit de catalogus
+var ververstijd = 20000, ververser = null;
 var sterren = null;          // de sterrenkaart, pas gebouwd als je het tabblad opent
 var demoAan = false;
 var modellen = { modellen:[], standaard:null, bron:null, sleutels:[] };
@@ -62,6 +65,7 @@ function load(){
     if(vloer) vloer.sync(S);
     if(sterren) sterren.setState(S);
     stuurWelvaart();
+    pasVoorkeurenToe();
     renderAll();
   }).catch(function(e){ pill("server niet bereikbaar","err"); console.error(e); });
 }
@@ -97,6 +101,12 @@ function setupVloer(){
 }
 
 /* ---------- modellen ---------- */
+function laadSoorten(){
+  return fetch("/api/catalogus").then(function(r){return r.json();})
+    .then(function(d){ soorten = d.soorten || []; })
+    .catch(function(){});
+}
+
 function laadModellen(ververs){
   return fetch("/api/modellen" + (ververs ? "?ververs=1" : ""))
     .then(function(r){return r.json();})
@@ -568,6 +578,231 @@ function renderWerkblad(){
   doel.innerHTML = h + zijkant();
 }
 
+/* ---------- instellingen ----------
+ * Alles wat je aan de hub kunt veranderen staat hier bij elkaar: waar de
+ * agents op draaien, wie je bent, wat je al hebt bereikt, en hoe het eruitziet.
+ * Alles gaat naar bedrijf.json of sleutels.json op deze machine.
+ */
+var devInfo = null, ruwToon = null, ruwTekst = "";
+
+function voorkeuren(){
+  return ((S.bedrijf || {}).voorkeuren) || {};
+}
+
+/* De voorkeuren toepassen op wat er draait. */
+function pasVoorkeurenToe(){
+  var v = voorkeuren();
+  if(vloer){
+    vloer.office.setThema(v.thema || "nacht");
+    if(v.animatie === false) vloer.office.reduced = true;
+    else if(v.animatie === true) vloer.office.reduced = false;
+  }
+  var ms = Number(v.ververs || 20) * 1000;
+  if(ms !== ververstijd){
+    ververstijd = ms;
+    clearInterval(ververser);
+    ververser = setInterval(load, ververstijd);
+  }
+}
+
+function bewaarVoorkeur(sleutel, waarde){
+  var v = {}; v[sleutel] = waarde;
+  if(!S.bedrijf) S.bedrijf = {};
+  S.bedrijf.voorkeuren = Object.assign({}, voorkeuren(), v);
+  pasVoorkeurenToe();
+  renderInstellingen();
+  fetch("/api/bedrijf", { method:"POST", headers:{"content-type":"application/json"},
+    body: JSON.stringify({ voorkeuren: v }) })
+    .then(function(r){ if(!r.ok) throw 0; pill("opgeslagen","ok");
+      setTimeout(function(){ pill(S.agents.length+" agents · "+S.drafts.length+" rapporten","ok"); }, 1200); })
+    .catch(function(){ pill("voorkeur niet opgeslagen","err"); });
+}
+
+function renderInstellingen(){
+  var doel = el("instelblad"); if(!doel) return;
+  var b = S.bedrijf || {}, bd = b.bedrijf || {}, v = voorkeuren();
+  var cc = (modellen && modellen.claudecode) || {};
+  var sl = (modellen && modellen.sleutels) || [];
+  var mod = (modellen && modellen.modellen) || [];
+
+  var h = '<h2 class="blad-kop">Instellingen</h2>';
+
+  /* --- waar draaien ze op --- */
+  h += '<section class="ins"><h3>Waar de agents op draaien</h3>'
+    + '<div class="ins-rij"><div class="ins-kaart' + (cc.beschikbaar ? " ja" : "") + '">'
+    + '<b>Claude Code op deze machine</b>'
+    + '<p>Loopt op je eigen abonnement. Geen sleutel, geen aparte rekening.</p>'
+    + '<span class="staat ' + (cc.beschikbaar ? "ok" : "uit") + '">'
+    + (cc.beschikbaar ? "gevonden · " + esc(cc.versie || "") : "niet gevonden" + (cc.reden ? " · " + esc(cc.reden) : ""))
+    + '</span></div>';
+
+  h += '<div class="ins-kaart"><b>Standaardmodel</b>'
+    + '<p>Wat de hub kiest als je zelf niets kiest bij een run.</p>'
+    + '<select data-voorkeur="model"><option value="">automatisch ('
+    + esc((modellen && modellen.standaard) || "-") + ')</option>'
+    + mod.map(function(m){
+        return '<option value="' + esc(m.id) + '"' + (v.model === m.id ? " selected" : "")
+          + (m.bruikbaar ? "" : " disabled") + '>' + esc(m.naam)
+          + (m.bruikbaar ? "" : " · sleutel nodig") + '</option>';
+      }).join("") + '</select></div></div>';
+
+  /* --- sleutels --- */
+  h += '<div class="ins-sleutels">' + sl.map(function(a){
+      return '<div class="sleutelrij"><div class="kop"><b>' + esc(a.naam) + '</b>'
+        + (a.heeft ? '<span class="chip geleverd">ingesteld ' + esc(a.staart) + '</span>'
+                   : '<span class="chip idle">leeg</span>')
+        + (a.bron === "omgeving" ? '<span class="chip nieuw">uit de omgeving</span>' : '')
+        + '<a href="' + esc(a.aanmelden) + '" target="_blank" rel="noopener">sleutel halen ↗</a></div>'
+        + '<p>' + esc(a.uitleg) + '</p>'
+        + '<div class="tools"><input type="password" data-sleutel="' + esc(a.id) + '" '
+        + 'placeholder="' + (a.heeft ? "vervangen of leegmaken" : "plak hier je sleutel") + '" autocomplete="off">'
+        + '<button data-bewaar="' + esc(a.id) + '">Bewaren</button></div></div>';
+    }).join("") + '</div>'
+    + '<p class="note">Sleutels staan in <code>sleutels.json</code> naast je workspace, met rechten 600. '
+    + 'Ze gaan nooit terug naar de browser: je ziet alleen de laatste vier tekens.</p></section>';
+
+  /* --- bedrijf --- */
+  h += '<section class="ins"><h3>Jij en je bedrijf</h3>'
+    + '<div class="grid2">'
+    + '<div><label for="iOperator">Jouw naam</label><input id="iOperator" value="' + esc(b.operator || "") + '"></div>'
+    + '<div><label for="iNaam">Bedrijfsnaam</label><input id="iNaam" value="' + esc(bd.naam || "") + '"></div>'
+    + '<div class="full"><label for="iWat">Wat doen jullie?</label>'
+    + '<textarea id="iWat" rows="2">' + esc(bd.wat || "") + '</textarea></div>'
+    + '<div><label for="iSoort">Soort bedrijf</label><select id="iSoort">'
+    + '<option value="">—</option>'
+    + (soorten || []).map(function(so){
+        return '<option value="' + esc(so.id) + '"' + (bd.soort === so.id ? " selected" : "") + '>'
+             + esc(so.label) + '</option>'; }).join("")
+    + '</select></div>'
+    + '<div><label for="iFase">Fase</label><select id="iFase">'
+    + ["valideren","bouwen","runnen"].map(function(f){
+        return '<option' + (bd.fase === f ? " selected" : "") + '>' + f + '</option>'; }).join("")
+    + '</select></div>'
+    + '</div><div class="tools" style="margin-top:12px">'
+    + '<button id="bBedrijf" class="primary">Bewaren</button>'
+    + '<a class="knopje" href="/start.html">Agents erbij zetten →</a></div></section>';
+
+  /* --- mijlpalen --- */
+  h += '<section class="ins"><h3>Mijlpalen</h3>'
+    + '<p class="ins-uit">Deze vink je zelf aan. De hub kan niet zien of je een klant hebt — '
+    + 'dat staat nergens in je bestanden. Elke mijlpaal is een punt voor het niveau van je stad.</p>'
+    + '<div class="mijlrij">' + MIJLPALEN.map(function(m){
+        var aan = ((b.mijlpalen || []).indexOf(m.id) >= 0);
+        return '<button data-mijlpaal="' + esc(m.id) + '" class="mijl' + (aan ? " aan" : "") + '">'
+          + '<i>' + (aan ? "✓" : "+") + '</i>' + esc(m.label) + '</button>';
+      }).join("") + '</div></section>';
+
+  /* --- uiterlijk --- */
+  h += '<section class="ins"><h3>Uiterlijk van de stad</h3>'
+    + '<div class="themarij">' + THEMAS.map(function(t){
+        var aan = (v.thema || "nacht") === t.id;
+        return '<button data-thema="' + t.id + '" class="thema' + (aan ? " aan" : "") + '">'
+          + '<span class="staal" style="background:linear-gradient(135deg,'
+          + (t.over && t.over.gebouw || "#23406E") + ',rgb(' + t.gloed.join(",") + '))"></span>'
+          + '<b>' + esc(t.naam) + '</b><span>' + esc(t.kort) + '</span></button>';
+      }).join("") + '</div>'
+    + '<div class="schakelrij">'
+    + schakel("animatie", "Animatie", v.animatie !== false,
+        "Lopende agents, knipperende ramen, stofjes. Uit is rustiger en scheelt accu.")
+    + schakel("rondloop", "Rondloop standaard aan", v.rondloop === true,
+        "Agents verzinnen zelf iets te doen. Verzonnen gedrag, duidelijk gelabeld.")
+    + '</div>'
+    + '<div class="ins-rij"><div class="ins-kaart"><b>Hoe vaak verversen</b>'
+    + '<p>Hoe vaak de hub je bestanden opnieuw leest.</p>'
+    + '<select data-voorkeur="ververs">'
+    + [10,20,60,300].map(function(n){
+        return '<option value="' + n + '"' + (Number(v.ververs || 20) === n ? " selected" : "") + '>'
+          + (n < 60 ? n + " seconden" : (n/60) + " minuten") + '</option>'; }).join("")
+    + '</select></div></div></section>';
+
+  doel.innerHTML = h;
+}
+
+function schakel(sleutel, titel, aan, uitleg){
+  return '<button class="schakel' + (aan ? " aan" : "") + '" data-schakel="' + sleutel + '">'
+    + '<i></i><span><b>' + esc(titel) + '</b><em>' + esc(uitleg) + '</em></span></button>';
+}
+
+/* ---------- dev ----------
+ * Voor als er iets niet werkt: waar draait dit, wat is er gevonden, wat ging
+ * er mis, en wat gaf de server letterlijk terug.
+ */
+function laadDev(){
+  return fetch("/api/dev").then(function(r){return r.json();})
+    .then(function(d){ devInfo = d; if(view === "dev") renderDev(); })
+    .catch(function(){});
+}
+
+function renderDev(){
+  var doel = el("devblad"); if(!doel) return;
+  var d = devInfo;
+  var h = '<h2 class="blad-kop">Dev</h2>';
+
+  if(!d){ doel.innerHTML = h + '<p class="note">Ophalen…</p>'; return; }
+
+  var rij = function(k, w, tone){
+    return '<div class="devrij"><span>' + esc(k) + '</span><b class="' + (tone||"") + '">' + w + '</b></div>';
+  };
+
+  h += '<section class="ins"><h3>Deze machine</h3><div class="devlijst">'
+    + rij("workspace", '<code>' + esc(d.workspace) + '</code>')
+    + rij("node", esc(d.node) + " · " + esc(d.platform))
+    + rij("adres", esc(d.host) + ":" + d.poort)
+    + rij("slot", d.slot ? "aan" : "uit", d.slot ? "ok" : "wait")
+    + rij("geheugen", esc(d.geheugen))
+    + rij("draait sinds", esc(String(d.draaitSinds).replace("T"," ").slice(0,19)))
+    + rij("claude code", d.claudecode.beschikbaar ? esc(d.claudecode.versie) : "niet gevonden",
+          d.claudecode.beschikbaar ? "ok" : "wait")
+    + '</div></section>';
+
+  h += '<section class="ins"><h3>Modellen</h3><div class="devlijst">'
+    + rij("bron", esc(d.modellen.bron), d.modellen.bron === "live" ? "ok" : "wait")
+    + rij("aantal", d.modellen.aantal)
+    + rij("opgehaald", esc(String(d.modellen.opgehaald).replace("T"," ").slice(0,19)))
+    + rij("bruikbaar", (d.bruikbaar||[]).map(esc).join(", ") || "geen")
+    + '</div>'
+    + (d.modellen.problemen && d.modellen.problemen.length
+        ? '<div class="devfouten">' + d.modellen.problemen.map(function(p){
+            return '<div>' + esc(p) + '</div>'; }).join("") + '</div>'
+        : '<p class="note">Geen problemen bij het ophalen.</p>')
+    + '</section>';
+
+  h += '<section class="ins"><h3>Omgeving</h3>'
+    + (d.omgeving && d.omgeving.length
+        ? '<div class="devlijst">' + d.omgeving.map(function(o){
+            var i = o.indexOf("=");
+            return rij(o.slice(0,i), '<code>' + esc(o.slice(i+1)) + '</code>'); }).join("") + '</div>'
+        : '<p class="note">Geen HUB_-variabelen gezet. Alles staat op de standaard.</p>')
+    + '</section>';
+
+  /* runs met alles erbij */
+  h += '<section class="ins"><h3>Laatste runs</h3>';
+  if(!runlijst.length) h += '<p class="note">Nog geen run gedraaid.</p>';
+  else h += '<div class="devruns">' + runlijst.slice(0,10).map(function(r, i){
+      return '<details><summary><span class="stip" style="background:'
+        + (r.fout ? "var(--wait)" : "var(--ok)") + '"></span>'
+        + esc(meta(r.agentId).naam) + ' · ' + esc(String(r.begonnen).replace("T"," ").slice(0,19))
+        + ' · ' + esc(r.model || "?") + ' · ' + ((r.tokensIn||0)+(r.tokensUit||0)) + ' tk'
+        + (r.kosten != null ? ' · $' + r.kosten.toFixed(4) : "")
+        + '</summary><pre>' + esc(JSON.stringify(r, null, 2)) + '</pre></details>';
+    }).join("") + '</div>';
+  h += '</section>';
+
+  /* ruwe antwoorden */
+  h += '<section class="ins"><h3>Wat de server teruggeeft</h3>'
+    + '<div class="tools">'
+    + ["state","modellen","gereedschap","runs","dev","catalogus"].map(function(n){
+        return '<button data-ruw="' + n + '"' + (ruwToon === n ? ' class="primary"' : '') + '>/api/' + n + '</button>';
+      }).join("")
+    + (ruwTekst ? '<button id="ruwKopie" class="quiet">kopiëren</button>' : '')
+    + '</div>'
+    + (ruwTekst ? '<pre class="ruw">' + esc(ruwTekst) + '</pre>'
+                : '<p class="note">Kies een endpoint om het antwoord te zien zoals het is.</p>')
+    + '</section>';
+
+  doel.innerHTML = h;
+}
+
 /* ---------- sleutels ---------- */
 function toonSleutels(){
   var d = el("sleutelvenster");
@@ -684,8 +919,12 @@ function feedRegel(r){
 function renderBalk(){
   var b = S.bedrijf;
   if(b){
-    el("bedrijfNaam").textContent = (b.bedrijf||{}).naam || "Validatiedesk";
-    el("bedrijfWat").textContent  = (b.bedrijf||{}).wat || ("operator " + (b.operator||""));
+    var bd = b.bedrijf || {};
+    el("bedrijfNaam").textContent = bd.naam || "Validatiedesk";
+    /* zonder bedrijfsnaam of omschrijving blijft de ondertitel gewoon staan;
+       "operator " zonder naam erachter is geen ondertitel maar een gat */
+    el("bedrijfWat").textContent = bd.wat
+      || (b.operator ? "van " + b.operator : "lokale werkomgeving");
   }
   var werk=S.agents.filter(function(a){var st=statusOf(a.id);return st==="opgepakt"||st==="nieuw";}).length;
   var open=S.desk.briefs.filter(function(x){return x.status==="nieuw"||x.status==="opgepakt";}).length;
@@ -1084,6 +1323,10 @@ function renderAll(){
     /* het doek was verborgen toen de camera zich instelde; opnieuw meten */
     if(vloer){ vloer.office._resize(); if(!vloer.office.zelfGezoomd) vloer.office.fit(); }
     renderChips(); renderTicker(); markeerSelectie(); renderPanel();
+  } else if(view === "instel"){
+    renderInstellingen();
+  } else if(view === "dev"){
+    renderDev(); laadDev();
   } else if(view === "ster"){
     var sb = el("sterbox");
     if(sb){ setupSterren(); sterren.setState(S); sterren._resize();
@@ -1170,11 +1413,47 @@ document.addEventListener("click",function(e){
   if(it){ toonInspecteur(it.dataset.insp); return; }
   if(e.target.id === "toonInspecteur"){ toonInspecteur(); return; }
   if(e.target.id === "sluitInspecteur"){ el("inspecteur").classList.remove("open"); return; }
-  if(e.target.id === "railSleutels"){ toonSleutels(); return; }
+  if(e.target.id === "railSleutels"){ view = "instel"; renderAll(); return; }
   var vt=e.target.closest("[data-view]");
   if(vt){ view=vt.dataset.view; renderAll(); return; }
   var cp=e.target.closest("[data-cap]");
   if(cp){ capSel=cp.dataset.cap; renderAll(); return; }
+  var th=e.target.closest("[data-thema]");
+  if(th){ bewaarVoorkeur("thema", th.dataset.thema); return; }
+  var sk=e.target.closest("[data-schakel]");
+  if(sk){
+    var nu = voorkeuren();
+    var aan = sk.dataset.schakel === "animatie" ? nu.animatie !== false : nu[sk.dataset.schakel] === true;
+    bewaarVoorkeur(sk.dataset.schakel, !aan);
+    if(sk.dataset.schakel === "rondloop" && vloer) vloer.setDemo(!aan);
+    return;
+  }
+  var rw=e.target.closest("[data-ruw]");
+  if(rw){
+    ruwToon = rw.dataset.ruw; ruwTekst = "ophalen…"; renderDev();
+    fetch("/api/" + ruwToon).then(function(r){return r.json();})
+      .then(function(d){ ruwTekst = JSON.stringify(d, null, 2); renderDev(); })
+      .catch(function(err){ ruwTekst = "mislukt: " + err; renderDev(); });
+    return;
+  }
+  if(e.target.id === "ruwKopie"){
+    navigator.clipboard && navigator.clipboard.writeText(ruwTekst);
+    e.target.textContent = "gekopieerd";
+    setTimeout(function(){ e.target.textContent = "kopiëren"; }, 1400);
+    return;
+  }
+  if(e.target.id === "bBedrijf"){
+    var knop = e.target; knop.disabled = true;
+    fetch("/api/bedrijf", { method:"POST", headers:{"content-type":"application/json"},
+      body: JSON.stringify({ operator: el("iOperator").value,
+        bedrijf: { naam: el("iNaam").value, wat: el("iWat").value,
+                   soort: el("iSoort").value, fase: el("iFase").value } }) })
+      .then(function(r){ if(!r.ok) throw 0; return load(); })
+      .then(function(){ pill("bedrijf bijgewerkt","ok"); })
+      .catch(function(){ pill("opslaan mislukt","err"); })
+      .finally(function(){ knop.disabled = false; });
+    return;
+  }
   var mp=e.target.closest("[data-mijlpaal]");
   if(mp){ zetMijlpaal(mp.dataset.mijlpaal); return; }
   var ga=e.target.closest("[data-ga]");
@@ -1223,7 +1502,7 @@ document.addEventListener("click",function(e){
     return;
   }
   if(e.target.id==="runStop"){ if(run && run.stop) run.stop(); return; }
-  if(e.target.id==="openSleutels"){ toonSleutels(); return; }
+  if(e.target.id==="openSleutels"){ view = "instel"; renderAll(); return; }
   if(e.target.id==="bDemo"){
     demoAan=!demoAan;
     e.target.setAttribute("aria-pressed", demoAan?"true":"false");
@@ -1240,6 +1519,11 @@ document.addEventListener("change",function(e){
   if(sl){ var b=S.desk.briefs.filter(function(x){return x.id===sl.dataset.status;})[0];
     if(b){b.status=sl.value;save();renderAll();} }
 });
+document.addEventListener("change", function(e){
+  var v = e.target.closest("[data-voorkeur]");
+  if(v) bewaarVoorkeur(v.dataset.voorkeur, v.value === "" ? null
+    : (isNaN(Number(v.value)) ? v.value : Number(v.value)));
+});
 document.addEventListener("keydown",function(e){ if(e.key==="Escape") el("reader").hidden=true; });
 
 setInterval(function(){
@@ -1250,7 +1534,8 @@ setInterval(function(){
 setupVloer();
 load();
 laadModellen();
+laadSoorten();
 laadGereedschap();
 laadRuns();
-setInterval(load, 20000);
+ververser = setInterval(load, ververstijd);
 })();
