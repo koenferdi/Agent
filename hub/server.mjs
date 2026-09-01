@@ -11,7 +11,8 @@ import { platform, networkInterfaces } from "node:os";
 import { randomBytes, timingSafeEqual, createHash } from "node:crypto";
 import { CATALOGUS, SOORTEN, namen, maakAgents, bestaande } from "./agentfabriek.mjs";
 import { AANBIEDERS, overzicht as sleutelOverzicht, zet as zetSleutel } from "./sleutels.mjs";
-import { lijst as modellenLijst, standaard as standaardModel, bruikbareAanbieders, claudecodeStatus } from "./modellen.mjs";
+import { lijst as modellenLijst, standaard as standaardModel, bruikbareAanbieders,
+         claudecodeStatus, praat } from "./modellen.mjs";
 import { draai, runs as leesRuns } from "./runner.mjs";
 import { status as gereedschapStatus } from "./gereedschap.mjs";
 
@@ -382,6 +383,46 @@ const server = createServer(async (req,res)=>{
     }
     // Het profiel bijwerken: mijlpalen, voorkeuren, aansluiting. Alles wat je
     // in de instellingen zet komt hier binnen en gaat naar bedrijf.json.
+    // Laat een model meedenken over de ploeg. Alleen een verfijning van de
+    // vaste suggestie: hij mag alleen kiezen uit de catalogus, en wat hij
+    // teruggeeft controleren we hier nog een keer.
+    if(url.pathname === "/api/advies" && req.method === "POST"){
+      let body=""; for await (const c of req){ body += c; if(body.length > 20_000) break; }
+      const g = JSON.parse(body || "{}");
+      const wat = String(g.wat || "").slice(0,600);
+      const soort = String(g.soort || "").slice(0,40);
+      if(!wat.trim()) return send(res,400,'{"error":"schrijf eerst in één of twee zinnen wat je doet"}');
+
+      const l = await modellenLijst(ROOT);
+      const bruikbaar = await bruikbareAanbieders(ROOT);
+      const model = standaardModel(l.modellen, bruikbaar);
+      if(!model || !bruikbaar.has(model.aanbieder))
+        return send(res,503,'{"error":"geen bruikbaar model — zet een sleutel, of installeer Claude Code op deze machine"}');
+
+      const lijstTekst = CATALOGUS.map(c => "- " + c.id + ": " + c.naam + " — " + c.kort).join("\n");
+      const systeem = "Je kiest een ploeg AI-agents voor een klein bedrijf. Je mag ALLEEN kiezen "
+        + "uit de gegeven lijst met ids. Kies er drie tot vijf, de belangrijkste eerst. "
+        + "Antwoord met alleen JSON, zonder uitleg eromheen, in deze vorm: "
+        + '{"agents":[{"id":"...","waarom":"één korte zin in het Nederlands"}]}';
+      const vraag = "Het bedrijf: " + wat + "\n"
+        + (soort ? "Soort bedrijf: " + soort + "\n" : "")
+        + "\nBeschikbare agents:\n" + lijstTekst;
+
+      try {
+        const r = await praat({ root: ROOT, aanbieder: model.aanbieder, model: model.id,
+          systeem, verloop: [{ rol:"gebruiker", tekst: vraag }], maxTokens: 900 });
+        const m = String(r.tekst || "").match(/\{[\s\S]*\}/);
+        const voorstel = m ? JSON.parse(m[0]) : { agents: [] };
+        const schoon = (voorstel.agents || [])
+          .filter(a => a && CATALOGUS.some(c => c.id === a.id))
+          .slice(0,6)
+          .map(a => ({ id: a.id, waarom: String(a.waarom || "").slice(0,160) }));
+        if(!schoon.length) return send(res,502,'{"error":"het model gaf geen bruikbare keuze terug"}');
+        return send(res,200,JSON.stringify({ agents: schoon, model: model.id, aanbieder: model.aanbieder }));
+      } catch(e){
+        return send(res,502,JSON.stringify({ error: String(e.message || e).slice(0,300) }));
+      }
+    }
     if(url.pathname === "/api/bedrijf" && req.method === "POST"){
       let body=""; for await (const c of req){ body += c; if(body.length > 200_000) break; }
       const g = JSON.parse(body || "{}");

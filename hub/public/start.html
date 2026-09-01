@@ -66,17 +66,44 @@ body{overflow-y:auto}
   font-size:12.5px;color:var(--ink-soft)}
 .klaarlijst .v{color:var(--ok)}
 .foutje{color:var(--wait);font-size:13px;margin-top:10px}
+
+/* de suggestie op basis van het soort bedrijf */
+.aanraden{border:1px solid var(--gold);border-radius:6px;padding:13px 14px;margin-bottom:20px;
+  background:color-mix(in srgb,var(--gold) 7%,transparent)}
+.aanraden h3{margin:0 0 4px;font-size:13.5px;color:var(--gold);font-weight:600}
+.aanraden p{margin:0 0 12px;font-size:12.5px;color:var(--ink-soft);line-height:1.55}
+.aanraden .kaarten{gap:7px}
+.waarom{display:block;font-size:12px;color:var(--gold);margin-top:5px;line-height:1.45}
+.meedenken{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-top:12px}
+.meedenken button{font-size:12.5px;padding:8px 13px}
+.meedenken .mee-uit{font-size:12px;color:var(--ink-faint)}
+
+/* aansluiting */
+.aan-kaart{display:block;width:100%;text-align:left;background:var(--panel);
+  border:1px solid var(--line);border-left:3px solid var(--line);border-radius:4px;
+  padding:13px 14px;margin-bottom:9px;color:var(--ink)}
+.aan-kaart[aria-pressed="true"]{border-color:var(--gold);border-left-color:var(--gold);background:var(--panel-2)}
+.aan-kaart b{display:block;font-size:14.5px;margin-bottom:3px;font-weight:500}
+.aan-kaart span{display:block;font-size:12.5px;color:var(--ink-soft);line-height:1.55}
+.aan-kaart em{display:block;font-style:normal;font-family:"IBM Plex Mono",monospace;font-size:11px;
+  margin-top:7px}
+.aan-kaart em.ja{color:var(--ok)} .aan-kaart em.nee{color:var(--ink-faint)}
+.sleutelveld{margin-top:12px;display:none}
+.sleutelveld.aan{display:block}
+.sleutelveld .rij{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap}
+.sleutelveld input{flex:1;min-width:200px;font-family:"IBM Plex Mono",monospace;font-size:13px}
+.sleutelveld a{font-size:12px}
 </style>
 </head>
 <body>
 <div class="wizard">
   <header class="hdr" style="margin-bottom:20px">
     <div><h1 class="pix">OPZETTEN</h1>
-      <p class="sub">Vier stappen. Aan het eind staan je agents als bestanden in deze workspace
+      <p class="sub">Zes stappen. Aan het eind staan je agents als bestanden in deze workspace
         en kun je ze aan het werk zetten.</p></div>
   </header>
 
-  <div class="stappen"><i class="aan"></i><i></i><i></i><i></i></div>
+  <div class="stappen"><i class="aan"></i><i></i><i></i><i></i><i></i><i></i></div>
 
   <section class="stap aan" data-stap="0">
     <h2>Wie ben jij?</h2>
@@ -105,14 +132,39 @@ body{overflow-y:auto}
   </section>
 
   <section class="stap" data-stap="2">
+    <h2>Wat voor bedrijf is het?</h2>
+    <p class="uitleg">Hiermee stel ik een ploeg voor die bij dat soort werk hoort. Zit je er
+      tussenin? Kies wat er het dichtst bij komt — je kunt in de volgende stap alles aanpassen.</p>
+    <div class="kaarten" id="soorten"></div>
+  </section>
+
+  <section class="stap" data-stap="3">
     <h2>Welke agents heb je nodig?</h2>
     <p class="uitleg">Elke agent wordt een bestand in <code>.claude/agents/</code> plus een
       capaciteit in <code>workflows/capabilities/</code>. Begin klein: drie is genoeg om te zien
       of het werkt. Je kunt er altijd bij zetten.</p>
+    <div id="aanraden"></div>
     <div id="catalogus"></div>
   </section>
 
-  <section class="stap" data-stap="3">
+  <section class="stap" data-stap="4">
+    <h2>Waar draaien ze op?</h2>
+    <p class="uitleg">Een agent heeft een model nodig om te denken. Er zijn drie manieren, en je
+      kunt later altijd wisselen bij Instellingen.</p>
+    <div id="aansluiting"></div>
+    <div class="sleutelveld" id="sleutelveld">
+      <label for="fSleutel">Sleutel plakken</label>
+      <div class="rij">
+        <select id="fAanbieder"></select>
+        <input id="fSleutel" placeholder="sk-..." autocomplete="off" spellcheck="false">
+        <button id="bSleutel" class="quiet">Opslaan</button>
+      </div>
+      <div class="hint" id="sleutelHint">De sleutel gaat naar <code>sleutels.json</code> op deze
+        machine, met rechten 600, en komt nooit terug naar de browser.</div>
+    </div>
+  </section>
+
+  <section class="stap" data-stap="5">
     <h2 id="klaarKop">Klaar</h2>
     <p class="uitleg" id="klaarTekst"></p>
     <div class="klaarlijst" id="klaarLijst"></div>
@@ -132,7 +184,9 @@ body{overflow-y:auto}
 <script>
 const $ = id => document.getElementById(id);
 const esc = s => String(s==null?"":s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-let stap = 0, catalogus = [], bestaande = [], gekozen = new Set();
+let stap = 0, catalogus = [], soorten = [], bestaande = [], gekozen = new Set();
+let soort = null, waaroms = {}, aansluiting = null, modelInfo = null, aanbieders = [];
+const LAATSTE = 5;
 
 /* ---- namen ---- */
 async function verversNamen(){
@@ -147,6 +201,72 @@ $("namen").addEventListener("click", e => {
   $("fBedrijf").value = b.dataset.naam;
 });
 
+/* ---- wat voor bedrijf ---- */
+function toonSoorten(){
+  $("soorten").innerHTML = soorten.map(function(so){
+    return '<button class="kies" data-soort="' + so.id + '" aria-pressed="' + (soort===so.id) + '">'
+      + '<span class="vink">' + (soort===so.id ? "✓" : "") + '</span>'
+      + '<span><b>' + esc(so.label) + '</b><span>' + esc(so.kort) + '</span>'
+      + '<em>' + so.agents.length + ' agents voorgesteld</em></span></button>';
+  }).join("");
+}
+$("soorten").addEventListener("click", e => {
+  const b = e.target.closest("[data-soort]"); if(!b) return;
+  soort = b.dataset.soort;
+  const so = soorten.find(x => x.id === soort);
+  gekozen = new Set(so ? so.agents.filter(id => !bestaande.includes(id)) : []);
+  waaroms = so ? Object.assign({}, so.waarom) : {};
+  toonSoorten(); toonCatalogus();
+});
+
+/* ---- de voorgestelde ploeg ---- */
+function toonAanraden(){
+  const so = soorten.find(x => x.id === soort);
+  if(!so){ $("aanraden").innerHTML = ""; return; }
+  const rij = so.agents.map(id => catalogus.find(a => a.id === id)).filter(Boolean);
+  $("aanraden").innerHTML =
+      '<div class="aanraden"><h3>Voorgesteld voor ' + esc(so.label.toLowerCase()) + '</h3>'
+    + '<p>' + esc(so.kort) + ' Deze ploeg staat al aangevinkt. Haal weg wat je niet wilt.</p>'
+    + '<div class="kaarten">'
+    + rij.map(a => {
+        const er = bestaande.includes(a.id);
+        return '<button class="kies" data-id="' + a.id + '"' + (er ? " disabled" : "")
+          + ' aria-pressed="' + (er || gekozen.has(a.id)) + '">'
+          + '<span class="vink">' + (er || gekozen.has(a.id) ? "✓" : "") + '</span>'
+          + '<span><b>' + esc(a.naam) + '</b><span>' + esc(a.kort) + '</span>'
+          + '<span class="waarom">' + esc(waaroms[a.id] || "") + '</span>'
+          + (er ? '<em>staat er al</em>' : '') + '</span></button>';
+      }).join("")
+    + '</div>'
+    + '<div class="meedenken">'
+    + '<button id="bMee" class="quiet">Laat Claude meedenken →</button>'
+    + '<span class="mee-uit" id="meeUit"></span>'
+    + '</div></div>';
+}
+
+/* Claude mag de vaste suggestie verfijnen op basis van wat jij hebt getypt. */
+async function meedenken(){
+  const uit = $("meeUit"), knop = $("bMee");
+  const wat = $("fWat").value.trim();
+  if(!wat){ uit.textContent = "Vul eerst bij stap 2 in wat je doet — anders valt er niets te wegen."; return; }
+  knop.disabled = true; uit.textContent = "Claude kijkt ernaar…";
+  try{
+    const r = await fetch("/api/advies", { method:"POST", headers:{"content-type":"application/json"},
+      body: JSON.stringify({ wat, soort }) });
+    const d = await r.json();
+    if(d.error) throw new Error(d.error);
+    gekozen = new Set(d.agents.map(a => a.id).filter(id => !bestaande.includes(id)));
+    d.agents.forEach(a => { waaroms[a.id] = a.waarom; });
+    const so = soorten.find(x => x.id === soort);
+    if(so) so.agents = d.agents.map(a => a.id);
+    toonAanraden(); toonCatalogus(); telling();
+    $("meeUit").textContent = "Voorstel van " + d.model + ". Je kunt het gewoon aanpassen.";
+  }catch(err){
+    uit.textContent = String(err.message || err);
+  }finally{ knop.disabled = false; }
+}
+document.addEventListener("click", e => { if(e.target && e.target.id === "bMee") meedenken(); });
+
 /* ---- catalogus ---- */
 const FASES = [
   { id:"valideren", kop:"Valideren", uit:"Uitzoeken of er een markt en een klant is. Hier begin je." },
@@ -155,14 +275,23 @@ const FASES = [
 ];
 async function laadCatalogus(){
   const d = await (await fetch("/api/catalogus")).json();
-  catalogus = d.catalogus; bestaande = d.bestaande || [];
+  catalogus = d.catalogus; soorten = d.soorten || []; bestaande = d.bestaande || [];
   if(d.bedrijf){
     $("fOperator").value = d.bedrijf.operator || "";
     $("fBedrijf").value = (d.bedrijf.bedrijf||{}).naam || "";
     $("fWat").value = (d.bedrijf.bedrijf||{}).wat || "";
+    soort = (d.bedrijf.bedrijf||{}).soort || null;
   }
-  catalogus.filter(a => a.fase === "valideren" && !bestaande.includes(a.id))
-           .forEach(a => gekozen.add(a.id));
+  if(!soort){
+    catalogus.filter(a => a.fase === "valideren" && !bestaande.includes(a.id))
+             .forEach(a => gekozen.add(a.id));
+  }
+  toonSoorten(); toonCatalogus();
+  laadAansluiting();
+}
+
+function toonCatalogus(){
+  toonAanraden();
   $("catalogus").innerHTML = FASES.map(f => {
     const rij = catalogus.filter(a => a.fase === f.id);
     if(!rij.length) return "";
@@ -171,7 +300,7 @@ async function laadCatalogus(){
           const er = bestaande.includes(a.id);
           return '<button class="kies" data-id="' + a.id + '"'
             + (er ? ' disabled' : '') + ' aria-pressed="' + (er || gekozen.has(a.id)) + '">'
-            + '<span class="vink">' + (er ? "✓" : "") + '</span>'
+            + '<span class="vink">' + (er || gekozen.has(a.id) ? "✓" : "") + '</span>'
             + '<span><b>' + esc(a.naam) + '</b><span>' + esc(a.kort) + '</span>'
             + '<em>' + esc(a.afdeling) + (er ? " · staat er al" : "") + '</em></span></button>';
         }).join("")
@@ -179,17 +308,86 @@ async function laadCatalogus(){
   }).join("");
   telling();
 }
-$("catalogus").addEventListener("click", e => {
-  const b = e.target.closest(".kies"); if(!b || b.disabled) return;
-  const id = b.dataset.id;
-  if(gekozen.has(id)) gekozen.delete(id); else gekozen.add(id);
-  b.setAttribute("aria-pressed", gekozen.has(id));
-  telling();
+/* Aanvinken werkt in beide lijsten: de voorgestelde ploeg en de volle catalogus. */
+["catalogus","aanraden"].forEach(function(id){
+  $(id).addEventListener("click", e => {
+    const b = e.target.closest(".kies[data-id]"); if(!b || b.disabled) return;
+    const a = b.dataset.id;
+    if(gekozen.has(a)) gekozen.delete(a); else gekozen.add(a);
+    toonCatalogus();
+  });
 });
 function telling(){
-  $("telling").textContent = stap === 2
+  $("telling").textContent = stap === 3
     ? gekozen.size + (gekozen.size === 1 ? " agent gekozen" : " agents gekozen") : "";
 }
+
+/* ---- waar draaien ze op ---- */
+async function laadAansluiting(){
+  try{
+    const d = await (await fetch("/api/modellen")).json();
+    modelInfo = d;
+    aanbieders = (d.sleutels || []).filter(a => a.id !== "brave");
+  }catch(e){ modelInfo = null; }
+  toonAansluiting();
+}
+
+function toonAansluiting(){
+  const cc = (modelInfo && modelInfo.claudecode) || { beschikbaar:false, reden:"nog niet gekeken" };
+  const metSleutel = (modelInfo && (modelInfo.sleutels||[]).filter(a => a.heeft)) || [];
+  const gratisModel = (modelInfo && (modelInfo.modellen||[]).filter(m => m.gratis && m.bruikbaar)) || [];
+  if(!aansluiting) aansluiting = cc.beschikbaar ? "claudecode" : (metSleutel.length ? "sleutel" : "gratis");
+
+  const kaart = (id, titel, uitleg, staat, klasse) =>
+      '<button class="aan-kaart" data-aan="' + id + '" aria-pressed="' + (aansluiting===id) + '">'
+    + '<b>' + titel + '</b><span>' + uitleg + '</span>'
+    + '<em class="' + klasse + '">' + staat + '</em></button>';
+
+  $("aansluiting").innerHTML =
+      kaart("claudecode", "Claude Code op deze machine",
+        "De hub roept de <code>claude</code> die hier al staat. Dat loopt op je eigen abonnement: "
+        + "geen sleutel, geen aparte rekening. Hij mag lezen en zoeken, niet schrijven.",
+        cc.beschikbaar ? "gevonden — " + esc(cc.versie || "") : "niet gevonden: " + esc(cc.reden || ""),
+        cc.beschikbaar ? "ja" : "nee")
+    + kaart("sleutel", "Een eigen API-sleutel",
+        "Van Anthropic, OpenRouter, Groq of Google. Rekent per gebruik af, werkt op elke server, "
+        + "ook zonder Claude Code.",
+        metSleutel.length ? metSleutel.map(a => esc(a.naam)).join(", ") + " staat klaar"
+                          : "nog geen sleutel gezet",
+        metSleutel.length ? "ja" : "nee")
+    + kaart("gratis", "Eerst gratis proberen",
+        "Een gratis model via OpenRouter of Groq, of een lokale ollama op deze machine. "
+        + "Langzamer en minder scherp, maar je kunt meteen kijken of het werkt.",
+        gratisModel.length ? gratisModel.length + " gratis model(len) bruikbaar"
+                           : "nog niets gratis bruikbaar — zet een sleutel bij OpenRouter of Groq",
+        gratisModel.length ? "ja" : "nee");
+
+  $("sleutelveld").classList.toggle("aan", aansluiting !== "claudecode");
+  $("fAanbieder").innerHTML = aanbieders.map(a =>
+    '<option value="' + a.id + '">' + esc(a.naam) + (a.heeft ? " · staat er" : "") + '</option>').join("");
+}
+
+$("aansluiting").addEventListener("click", e => {
+  const b = e.target.closest("[data-aan]"); if(!b) return;
+  aansluiting = b.dataset.aan; toonAansluiting();
+});
+
+$("bSleutel").onclick = async () => {
+  const knop = $("bSleutel"), hint = $("sleutelHint");
+  const sleutel = $("fSleutel").value.trim();
+  if(!sleutel){ $("fSleutel").focus(); return; }
+  knop.disabled = true; hint.textContent = "Opslaan…";
+  try{
+    const r = await fetch("/api/sleutel", { method:"POST", headers:{"content-type":"application/json"},
+      body: JSON.stringify({ aanbieder: $("fAanbieder").value, sleutel }) });
+    const d = await r.json();
+    if(d.error) throw new Error(d.error);
+    $("fSleutel").value = "";
+    hint.textContent = "Opgeslagen. De modellenlijst is opnieuw opgehaald.";
+    await laadAansluiting();
+  }catch(err){ hint.textContent = "Opslaan mislukt: " + String(err.message || err); }
+  finally{ knop.disabled = false; }
+};
 
 /* ---- stappen ---- */
 function toon(n){
@@ -199,8 +397,8 @@ function toon(n){
     i.className = k < n ? "klaar" : (k === n ? "aan" : "");
   });
   $("terug").style.visibility = n === 0 ? "hidden" : "visible";
-  $("verder").textContent = n === 2 ? "Aanmaken →" : "Verder →";
-  $("verder").hidden = n === 3;
+  $("verder").textContent = n === 4 ? "Aanmaken →" : "Verder →";
+  $("verder").hidden = n === LAATSTE;
   telling();
   scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -215,6 +413,14 @@ $("verder").onclick = async () => {
     toon(2); return;
   }
   if(stap === 2){
+    if(!soort){ $("soorten").scrollIntoView({behavior:"smooth"}); return; }
+    toon(3); return;
+  }
+  if(stap === 3){
+    if(!gekozen.size){ $("telling").textContent = "Kies er minstens één."; return; }
+    toon(4); laadAansluiting(); return;
+  }
+  if(stap === 4){
     $("verder").disabled = true; $("verder").textContent = "Bezig…";
     try{
       const r = await fetch("/api/onboarding", {
@@ -223,6 +429,8 @@ $("verder").onclick = async () => {
           operator: $("fOperator").value.trim(),
           bedrijf: $("fBedrijf").value.trim(),
           wat: $("fWat").value.trim(),
+          soort: soort || "",
+          aansluiting: aansluiting || "",
           agents: [...gekozen]
         })
       });
@@ -233,13 +441,13 @@ $("verder").onclick = async () => {
       $("verder").disabled = false; $("verder").textContent = "Aanmaken →";
       $("foutje").hidden = false;
       $("foutje").textContent = "Aanmaken mislukt: " + err.message;
-      toon(3);
+      toon(LAATSTE);
     }
   }
 };
 
 function klaar(d){
-  toon(3);
+  toon(LAATSTE);
   $("klaarKop").textContent = d.bedrijf.bedrijf.naam + " staat klaar";
   const n = d.gemaakt.length;
   $("klaarTekst").innerHTML = n
