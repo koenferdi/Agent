@@ -9,6 +9,10 @@ step(){ printf '\n%s==> %s%s\n' "$GRN" "$*" "$OFF"; }
 warn(){ printf '%s!  %s%s\n' "$YEL" "$*" "$OFF"; }
 die(){ printf '%s%s%s\n' "$RED" "$*" "$OFF" >&2; exit 1; }
 
+# Zonder dit vangnet stopt het script bij een fout zonder iets te zeggen.
+on_error(){ printf '%s\n' "${RED}Afgebroken op regel $2 (exitcode $1).${OFF}" >&2; }
+trap 'on_error $? $LINENO' ERR
+
 [[ $EUID -eq 0 ]] || die "Draai dit met sudo: sudo bash deploy/setup-vps.sh"
 command -v apt-get >/dev/null || die "Dit script is voor Ubuntu/Debian."
 
@@ -57,8 +61,16 @@ if [[ -n "${FLY_PASSWORD:-}" ]]; then
   [[ ${#PASSWORD} -ge 20 ]] || die "FLY_PASSWORD moet minstens 20 tekens hebben."
   say "  Wachtwoord overgenomen uit FLY_PASSWORD."
 else
-  gen4(){ tr -dc 'abcdefghjkmnpqrstuvwxyz23456789' < /dev/urandom | head -c 4; }
-  PASSWORD="$(gen4)-$(gen4)-$(gen4)-$(gen4)-$(gen4)-$(gen4)"
+  # Geen "tr | head": head sluit de pijp, tr krijgt SIGPIPE en met
+  # pipefail breekt het hele script daarop af. od leest een vast aantal
+  # bytes en stopt uit zichzelf, dus daar kan niets dichtklappen.
+  chars='abcdefghjkmnpqrstuvwxyz23456789'
+  raw=''
+  for byte in $(od -An -tu1 -N 24 /dev/urandom); do
+    raw+="${chars:$((byte % ${#chars})):1}"
+  done
+  [[ ${#raw} -eq 24 ]] || die "Kon geen wachtwoord genereren."
+  PASSWORD="${raw:0:4}-${raw:4:4}-${raw:8:4}-${raw:12:4}-${raw:16:4}-${raw:20:4}"
 fi
 
 # ---------------------------------------------------------------- python
