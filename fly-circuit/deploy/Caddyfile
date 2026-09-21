@@ -1,0 +1,16 @@
+# Caddy zet automatisch HTTPS aan via Let's Encrypt.
+# __DOMAIN__ en __PORT__ worden ingevuld door setup-vps.sh.
+__DOMAIN__ {
+    reverse_proxy 127.0.0.1:__PORT__ {
+        # Verplicht voor de live-stream (SSE). Zonder dit blijft het
+        # dashboard op "Verbinden..." staan omdat Caddy de stream buffert.
+        flush_interval -1
+    }
+
+    header {
+        Strict-Transport-Security "max-age=31536000"
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "no-referrer"
+        -Server
+    }
+}
