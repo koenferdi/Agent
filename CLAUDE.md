@@ -4,7 +4,9 @@
 
 Deze workspace wordt gebruikt om een bedrijf op te zetten en te runnen met behulp van AI-agents. Het werk verloopt in fasen: eerst valideren (marktonderzoek, klantonderzoek, strategie), dan bouwen (aanbod, financien), dan runnen (marketing, sales, operatie).
 
-De huidige fase is valideren. Er is nog geen bedrijf en nog geen gekozen markt. Alles wat daarover niet vaststaat is een open vraag, geen aanname. Vul geen branche, doelgroep of product in die ik niet zelf heb genoemd.
+Er is een bestaand bedrijf: getmatchdesk, met website www.getmatchdesk.nl. Wat het precies aanbiedt, voor wie, en hoe het geld verdient is in deze workspace nog niet vastgelegd. Ik vind het aanbod nu te simpel en wil onderzoeken hoe het groter of sterker kan.
+
+De huidige fase is valideren, nu gericht op getmatchdesk: kijken waar het aanbod te simpel is en of uitbreiding iets is waar klanten voor betalen. Alles wat niet vaststaat is een open vraag, geen aanname. Vul geen branche, doelgroep of product in die ik niet zelf heb genoemd.
 
 ## About Me
 
